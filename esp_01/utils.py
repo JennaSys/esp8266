@@ -2,6 +2,8 @@ import os
 import network
 import webrepl
 
+from keys import ssids
+
 
 def ls():
     print(os.listdir())
@@ -13,8 +15,8 @@ def cat(file):
 
 
 def connect_wifi():
-    STA_SSID = 'CASA'
-    STA_PSK = '197F991094'
+    STA_SSID = ssids["Pachea"]["SSID"]
+    STA_PSK = ssids["Pachea"]["PWD"]
 
     # Turn off AP mode
     ap_if = network.WLAN(network.AP_IF)
