@@ -15,8 +15,9 @@ def cat(file):
 
 
 def connect_wifi():
-    STA_SSID = ssids["Pachea"]["SSID"]
-    STA_PSK = ssids["Pachea"]["PWD"]
+    STA_LOC = 'Pachea'
+    STA_SSID = ssids[STA_LOC]['SSID']
+    STA_PSK = ssids[STA_LOC]['PWD']
 
     # Turn off AP mode
     ap_if = network.WLAN(network.AP_IF)

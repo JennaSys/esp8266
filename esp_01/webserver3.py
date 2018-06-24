@@ -6,10 +6,12 @@ from keys import ssids
 
 class WebServer:
     # Begin configuration
+    STA_LOC = 'Pachea'
+    STA_SSID = ssids[STA_LOC]['SSID']
+    STA_PSK = ssids[STA_LOC]['PWD']
+
     TITLE = "LED Control"
     GPIO_NUM = 2
-    STA_SSID = ssids["Pachea"]["SSID"]
-    STA_PSK = ssids["Pachea"]["PWD"]
     # End configuration
 
     def __init__(self):
