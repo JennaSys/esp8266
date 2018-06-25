@@ -1,3 +1,7 @@
+"""
+Helper functions to make life in the micropython REPL a little more pleasant
+"""
+
 import os
 import network
 import webrepl
@@ -5,6 +9,7 @@ import webrepl
 from keys import ssids
 
 
+# File utilities
 def ls():
     print(os.listdir())
 
@@ -14,6 +19,11 @@ def cat(file):
         print(f.read())
 
 
+def rm(file):
+    os.remove(file)
+
+
+# Network utilities
 def connect_wifi():
     STA_LOC = 'Pachea'
     STA_SSID = ssids[STA_LOC]['SSID']
