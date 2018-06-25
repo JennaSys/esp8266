@@ -11,7 +11,9 @@ from keys import ssids
 
 # File utilities
 def ls():
-    print(os.listdir())
+    dir_list = os.listdir()
+    for f in sorted(dir_list):
+        print(f)
 
 
 def cat(file):

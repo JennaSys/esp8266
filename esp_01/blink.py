@@ -11,4 +11,3 @@ while True:
         led.on()
     utime.sleep_ms(1000)
     enabled = not enabled
-

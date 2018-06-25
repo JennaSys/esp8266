@@ -4,6 +4,7 @@ from machine import Pin
 
 from keys import ssids
 
+
 class WebServer:
     # Begin configuration
     STA_LOC = 'Pachea'
@@ -24,13 +25,6 @@ class WebServer:
 
     def led_on(self):
         self.pin.off()
-
-    def connect_wifi(self):
-        ap_if = network.WLAN(network.AP_IF)
-        if ap_if.active(): ap_if.active(False)
-        sta_if = network.WLAN(network.STA_IF)
-        if not sta_if.active(): sta_if.active(True)
-        if not sta_if.isconnected(): sta_if.connect(self.STA_SSID, self.STA_PSK)
 
     def ok(self, socket, query):
         socket.write("HTTP/1.1 OK\r\n\r\n")
