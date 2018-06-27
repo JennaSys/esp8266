@@ -6,6 +6,7 @@ import os
 import network
 import ubinascii
 import webrepl
+import machine
 
 from keys import ssids
 
@@ -56,7 +57,7 @@ def show_ip():
 
 
 def show_mac():
-    mac = ubinascii.hexlify(network.WLAN().config('mac'), ':').decode()
+    mac = ubinascii.hexlify(network.WLAN().config('mac'), ':').decode().upper()
     print(mac)
 
 
@@ -66,3 +67,8 @@ def webrepl_start():
 
 def webrepl_stop():
     webrepl.stop()
+
+
+def unique_id():
+    uid = ubinascii.hexlify(machine.unique_id()).decode()
+    print(uid)
