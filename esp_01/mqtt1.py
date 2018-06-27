@@ -26,7 +26,17 @@ def start_loop():
         client.disconnect()
 
 
-start_loop()
+def start_loop2():
+    try:
+        while True:
+            client.wait_msg()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        client.disconnect()
+
+
+start_loop2()
 
 # TODO: add security (user/pwd/cert?)
 # TODO: use config file for server/topic/credentials
