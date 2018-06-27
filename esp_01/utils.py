@@ -4,6 +4,7 @@ Helper functions to make life in the micropython REPL a little more pleasant
 
 import os
 import network
+import ubinascii
 import webrepl
 
 from keys import ssids
@@ -52,6 +53,11 @@ def show_ip():
         print(sta_if.ifconfig()[0])
     else:
         print("Not Connected")
+
+
+def show_mac():
+    mac = ubinascii.hexlify(network.WLAN().config('mac'), ':').decode()
+    print(mac)
 
 
 def webrepl_start():
