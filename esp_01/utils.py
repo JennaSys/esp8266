@@ -28,7 +28,7 @@ def rm(file):
 
 # Network utilities
 def connect_wifi():
-    STA_LOC = 'Pachea'
+    STA_LOC = input("Enter location key: ")
     STA_SSID = ssids[STA_LOC]['SSID']
     STA_PSK = ssids[STA_LOC]['PWD']
 
