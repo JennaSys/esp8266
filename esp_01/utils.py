@@ -48,17 +48,17 @@ def connect_wifi():
     print(sta_if.ifconfig())
 
 
-def show_ip():
+def get_ip():
     sta_if = network.WLAN(network.STA_IF)
     if sta_if.active():
-        print(sta_if.ifconfig()[0])
+        return sta_if.ifconfig()[0]
     else:
-        print("Not Connected")
+        return '0.0.0.0'
 
 
-def show_mac():
+def get_mac():
     mac = ubinascii.hexlify(network.WLAN().config('mac'), ':').decode().upper()
-    print(mac)
+    return mac
 
 
 def webrepl_start():
@@ -71,4 +71,4 @@ def webrepl_stop():
 
 def unique_id():
     uid = ubinascii.hexlify(machine.unique_id()).decode()
-    print(uid)
+    return uid
