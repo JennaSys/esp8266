@@ -2,17 +2,23 @@ from umqtt.simple import MQTTClient
 from time import sleep
 import utils
 
-client = MQTTClient(utils.get_mac(), '192.168.1.166')
+from mqtt_config import config
+
+MQTT_BROKER = config['broker']
+MQTT_SUB = config['topic_sub']
+MQTT_PUB = config['topic_pub']
+
+client = MQTTClient(utils.get_mac(), MQTT_BROKER)
 
 
 def rcv(topic, msg):
     print("{}: {}".format(topic.decode("utf-8"), msg.decode("utf-8")))
-    client.publish('test/stuff', '{"rcv":"'+msg.decode("utf-8")+'"}')
+    client.publish(MQTT_PUB, '{"rcv":"'+msg.decode("utf-8")+'"}')
 
 
 client.set_callback(rcv)
 client.connect()
-client.subscribe('test/junk')
+client.subscribe(MQTT_SUB)
 
 
 def start_loop():
@@ -39,4 +45,4 @@ def start_loop2():
 start_loop2()
 
 # TODO: add security (user/pwd/cert?)
-# TODO: use config file for server/topic/credentials
+# TODO: add OLED to allow for monitoring with disconnected operation
