@@ -4,6 +4,7 @@ import utils
 
 from mqtt_config import config
 
+
 MQTT_BROKER = config['broker']
 MQTT_SUB = config['topic_sub']
 MQTT_PUB = config['topic_pub']
@@ -17,6 +18,7 @@ def rcv(topic, msg):
 
 
 client.set_callback(rcv)
+client.set_last_will('test/admin', 'OOPS - ' + utils.get_mac() + ' crashed!')
 client.connect()
 client.subscribe(MQTT_SUB)
 
