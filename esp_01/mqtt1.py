@@ -46,5 +46,3 @@ def start_loop2():
 
 start_loop2()
 
-# TODO: add security (user/pwd/cert?)
-# TODO: add OLED to allow for monitoring with disconnected operation

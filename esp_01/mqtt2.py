@@ -22,15 +22,29 @@ class Announce:
         self.mqtt_sub = ''.join([self.MQTT_SUB, '/', self.get_mac()])
         self.mqtt_pub = ''.join([self.MQTT_SUB, '/', self.MQTT_PUB])
         self.mqtt_pub_sys = ''.join([self.MQTT_SUB, '/', self.MQTT_SYS])
+
         self.mqtt = self.init_mqtt()
         self.display = self.init_oled()
+        self.led = self.init_led()
 
-        self.led = machine.Pin(self.PIN_LED, machine.Pin.OUT)
-        self.led.on()
+        self.rtc = machine.RTC()
+        self.init_rtc()
 
-        self.btn = machine.Pin(self.PIN_BTN, machine.Pin.IN, machine.Pin.PULL_UP)  # D2
-        self.btn.irq(trigger=machine.Pin.IRQ_RISING | machine.Pin.IRQ_FALLING, handler=self.btn_pushed)
+        self.btn = self.init_btn()
         self.prev_btn_press = time.ticks_ms()
+
+    def init_led(self):
+        led = machine.Pin(self.PIN_LED, machine.Pin.OUT)
+        led.on()
+        return led
+
+    def init_btn(self):
+        btn = machine.Pin(self.PIN_BTN, machine.Pin.IN, machine.Pin.PULL_UP)  # D2
+        btn.irq(trigger=machine.Pin.IRQ_RISING | machine.Pin.IRQ_FALLING, handler=self.btn_pushed)
+        return btn
+
+    def init_rtc(self):
+        self.mqtt.publish(self.mqtt_pub_sys, ''.join(['{"mac":"', self.get_mac(), '", "cmd":"RTC"}']))
 
     def init_oled(self):
         oled_width = 128
@@ -66,14 +80,14 @@ class Announce:
 
     @staticmethod
     def get_mac():
-        mac = ubinascii.hexlify(network.WLAN().config('mac')).decode().upper()
         # mac = ubinascii.hexlify(network.WLAN().config('mac'), ':').decode().upper()
+        mac = ubinascii.hexlify(network.WLAN().config('mac')).decode().upper()
         return mac
 
     def mqtt_process_sub(self, topic, msg):
+        channel = topic.decode("utf-8")
         payload = msg.decode("utf-8")
-        topic = topic.decode("utf-8")
-        print("{}: {}".format(topic, payload))
+        print("{}: {}".format(channel, payload))
 
         data = json.loads(payload)
         if 'led' in data:
@@ -82,6 +96,14 @@ class Announce:
                 self.led.off()
             elif data['led'] == 'OFF':
                 self.led.on()
+        elif 'time' in data:
+            self.update_display(['time', ' ' + data['time']])
+            # temp_time = tuple(int(x) for x in data['time'].split(':'))
+            temp_time = tuple(map(int, data['time'].split(':')))
+            time.sleep(0.1)
+            # print(temp_time)
+            # self.rtc.datetime((2017, 8, 23, 1, 12, 48, 0, 0))
+            self.rtc.datetime(temp_time)
 
     def update_display(self, msg_list):
         line = 20
@@ -101,10 +123,11 @@ class Announce:
             self.prev_btn_press = time.ticks_ms()
             if delta > 20:  # Ignore any triggers < 20ms
                 # self.led.value(not self.led.value())
+                curr_time = ':'.join(map(str, self.rtc.datetime()))
                 if self.led.value():
-                    self.mqtt.publish(self.mqtt_pub, ''.join(['{"mac":"', self.get_mac(), '", "cmd":"HELP"}']))
+                    self.mqtt.publish(self.mqtt_pub, ''.join(['{"mac":"', self.get_mac(), '", "cmd":"HELP", "time":"', curr_time, '"}']))
                 else:
-                    self.mqtt.publish(self.mqtt_pub, ''.join(['{"mac":"', self.get_mac(), '", "cmd":"CANCEL"}']))
+                    self.mqtt.publish(self.mqtt_pub, ''.join(['{"mac":"', self.get_mac(), '", "cmd":"CANCEL", "time":"', curr_time, '"}']))
 
     def start(self):
         print('Listening for {}...'.format(self.mqtt_sub))
@@ -122,9 +145,11 @@ if __name__ == '__main__':
     announce = Announce()
     announce.start()
 
+# TODO: build MQTT data with dictionaries and convert to JSON to send
 # TODO: Timer pub on announce/system for heartbeat with mac payload
-# TODO: pub on announce/system with mac and receive on announce/{mac} to set RTC from controller
-# TODO: press button again to deactivate LEDs and pub announce/notify with CANCEL
+# TODO: stub out app MQTT controller node
+# TODO: add security (user/pwd/cert?)
+# TODO: deepsleep mode
 
 """
 import mqtt2
