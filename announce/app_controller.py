@@ -87,3 +87,5 @@ if __name__ == '__main__':
     announce.start()
 
 
+# TODO: Create UI for monitoring, manual updates, and button config
+# TODO: add mqtt security
