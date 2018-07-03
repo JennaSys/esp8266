@@ -1,10 +1,10 @@
-from umqtt.simple import MQTTClient
 import time
 import machine
 import network
 import ubinascii
 import ssd1306
 import json
+from umqtt.simple import MQTTClient
 
 from mqtt_config import config
 
@@ -90,13 +90,13 @@ class Announce:
         print("{}: {}".format(channel, payload))
 
         data = json.loads(payload)
-        if 'led' in data:
+        if 'led' in data:  # {"led":"ON"}
             self.update_display(['led', ' ' + data['led']])
             if data['led'] == 'ON':
                 self.led.off()
             elif data['led'] == 'OFF':
                 self.led.on()
-        elif 'time' in data:
+        elif 'time' in data:  # {"time":"2017:8:23:1:12:48:0:0"}
             self.update_display(['time', ' ' + data['time']])
             # temp_time = tuple(int(x) for x in data['time'].split(':'))
             temp_time = tuple(map(int, data['time'].split(':')))
@@ -147,7 +147,7 @@ if __name__ == '__main__':
 
 # TODO: build MQTT data with dictionaries and convert to JSON to send
 # TODO: Timer pub on announce/system for heartbeat with mac payload
-# TODO: stub out app MQTT controller node
+# TODO: stub out app MQTT controller node for responses and MP3 drive
 # TODO: add security (user/pwd/cert?)
 # TODO: deepsleep mode
 
