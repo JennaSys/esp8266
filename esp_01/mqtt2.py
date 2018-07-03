@@ -147,7 +147,7 @@ if __name__ == '__main__':
 
 # TODO: build MQTT data with dictionaries and convert to JSON to send
 # TODO: Timer pub on announce/system for heartbeat with mac payload
-# TODO: stub out app MQTT controller node for responses and MP3 drive
+# TODO: move to announce_esp
 # TODO: add security (user/pwd/cert?)
 # TODO: deepsleep mode
 
