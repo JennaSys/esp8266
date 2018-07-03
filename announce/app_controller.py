@@ -9,9 +9,9 @@ from announce_config import config
 
 class AnnounceController:
     MQTT_BROKER = config['broker']
-    MQTT_SUB = config['topic_sub_root']
-    MQTT_APP = config['topic_sub_app']
-    MQTT_SYS = config['topic_sub_sys']
+    MQTT_SUB = config['topic_root']
+    MQTT_APP = config['topic_app']
+    MQTT_SYS = config['topic_sys']
 
     def __init__(self):
         self.mqtt_sub_app = ''.join([self.MQTT_SUB, '/', self.MQTT_APP])

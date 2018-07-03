@@ -11,9 +11,9 @@ from mqtt_config import config
 
 class Announce:
     MQTT_BROKER = config['broker']
-    MQTT_SUB = config['topic_sub_root']
-    MQTT_PUB = config['topic_pub_app']
-    MQTT_SYS = config['topic_pub_sys']
+    MQTT_SUB = config['topic_root']
+    MQTT_PUB = config['topic_app']
+    MQTT_SYS = config['topic_sys']
 
     PIN_LED = 5  # D1
     PIN_BTN = 4  # D2
