@@ -33,28 +33,32 @@ class AnnounceController:
         return client
 
     def mqtt_process_sub(self, client, userdata, msg):
-        channel = msg.topic
+        topic = msg.topic
         payload = msg.payload.decode("utf-8")
-        print("{}: {}".format(channel, payload))
+        print("{}: {}".format(topic, payload))
 
         data = json.loads(payload)
+        pub_data = {}
 
-        channel_group = channel.split('/')[-1]
-        if channel_group == 'notify':
+        channel = topic.split('/')[-1]
+        if channel == 'notify':
             mac = data['mac']
             mqtt_pub = ''.join([self.MQTT_SUB, '/', mac])
             if 'cmd' in data:
                 if data['cmd'] == 'HELP':
-                    self.mqtt.publish(mqtt_pub, '{"led":"ON"}')
+                    pub_data['led'] = 'ON'
+                    self.mqtt.publish(mqtt_pub, json.dumps(pub_data))
                 elif data['cmd'] == 'CANCEL':
-                    self.mqtt.publish(mqtt_pub, '{"led":"OFF"}')
-        elif channel_group == 'system':
+                    pub_data['led'] = 'OFF'
+                    self.mqtt.publish(mqtt_pub, json.dumps(pub_data))
+        elif channel == 'system':
             mac = data['mac']
             mqtt_pub = ''.join([self.MQTT_SUB, '/', mac])
             if 'cmd' in data:
                 # Handle RTC update requests
                 if data['cmd'] == 'RTC':
-                    self.mqtt.publish(mqtt_pub, ''.join(['{"time":"', self.get_time(), '"}']))
+                    pub_data['time'] = self.get_time()
+                    self.mqtt.publish(mqtt_pub, json.dumps(pub_data))
 
                 # Handle device name requests
                 elif data['cmd'] == 'DEVICE_ADD':
@@ -66,20 +70,24 @@ class AnnounceController:
                         self.save_devices()
                 elif data['cmd'] == 'DEVICE_GET':
                     if data['device_mac'] in self.device_map:
-                        self.mqtt.publish(mqtt_pub, ''.join(['{"device_mac":"', data['device_mac'], '", "device_name":"', self.device_map[data['device_mac']], '"}']))
+                        pub_data['device_mac'] = data['device_mac']
+                        pub_data['device_name'] = self.device_map[data['device_mac']]
+                        self.mqtt.publish(mqtt_pub, json.dumps(pub_data))
                     else:
-                        self.mqtt.publish(mqtt_pub, ''.join(['{"device_mac":"', data['device_mac'], '", "device_name":"', data['device_mac'], '"}']))
+                        pub_data['device_mac'] = data['device_mac']
+                        pub_data['device_name'] = data['device_mac']
+                        self.mqtt.publish(mqtt_pub, json.dumps(pub_data))
                 elif data['cmd'] == 'DEVICE_GET_ALL':
-                    devices = str(self.device_map)[1:-1]
-                    self.mqtt.publish(mqtt_pub, ''.join(['{"devices":"', devices, '"}']))
+                    pub_data['devices'] = str(self.device_map)[1:-1]
+                    self.mqtt.publish(mqtt_pub, json.dumps(pub_data))
                     # reconstitute dictionary with   d=ast.literal_eval(''.join(['{', devices, '}']))
                 elif data['cmd'] == 'DEVICE_RESET':
                     self.device_map = {}
                     self.save_devices()
-                    devices = str(self.device_map)[1:-1]
-                    self.mqtt.publish(mqtt_pub, ''.join(['{"devices":"', devices, '"}']))
+                    pub_data['devices'] = str(self.device_map)[1:-1]
+                    self.mqtt.publish(mqtt_pub, json.dumps(pub_data))
         else:
-            print("Unknown topic: '{}'".format(channel))
+            print("Unknown topic: '{}'".format(topic))
 
     @staticmethod
     def get_mac():
@@ -127,4 +135,3 @@ if __name__ == '__main__':
 
 # TODO: Create UI for monitoring, manual updates, and button config
 # TODO: add mqtt security
-# TODO: jsonify pubs rather than string building
