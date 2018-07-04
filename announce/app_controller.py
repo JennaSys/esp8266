@@ -12,6 +12,7 @@ class AnnounceController:
     MQTT_SUB = config['topic_root']
     MQTT_APP = config['topic_app']
     MQTT_SYS = config['topic_sys']
+    DEVICE_FILE = 'devices.json'
 
     def __init__(self):
         self.mqtt_sub_app = ''.join([self.MQTT_SUB, '/', self.MQTT_APP])
@@ -33,7 +34,7 @@ class AnnounceController:
 
     def mqtt_process_sub(self, client, userdata, msg):
         channel = msg.topic
-        payload = msg.payload
+        payload = msg.payload.decode("utf-8")
         print("{}: {}".format(channel, payload))
 
         data = json.loads(payload)
@@ -65,12 +66,18 @@ class AnnounceController:
                         self.save_devices()
                 elif data['cmd'] == 'DEVICE_GET':
                     if data['device_mac'] in self.device_map:
-                        self.mqtt.publish(mqtt_pub, ''.join(['{"mac":"', data['device_mac'], '", "name":"', self.device_map[data['device_mac']], '"}']))
+                        self.mqtt.publish(mqtt_pub, ''.join(['{"device_mac":"', data['device_mac'], '", "device_name":"', self.device_map[data['device_mac']], '"}']))
                     else:
-                        self.mqtt.publish(mqtt_pub, ''.join(['{"mac":"', data['device_mac'], '", "name":"', data['device_mac'], '"}']))
+                        self.mqtt.publish(mqtt_pub, ''.join(['{"device_mac":"', data['device_mac'], '", "device_name":"', data['device_mac'], '"}']))
                 elif data['cmd'] == 'DEVICE_GET_ALL':
-                    if data['device_mac'] in self.device_map:
-                        self.mqtt.publish(mqtt_pub, ''.join(['{"devices":"', json.loads(self.device_map), '"}']))
+                    devices = str(self.device_map)[1:-1]
+                    self.mqtt.publish(mqtt_pub, ''.join(['{"devices":"', devices, '"}']))
+                    # reconstitute dictionary with   d=ast.literal_eval(''.join(['{', devices, '}']))
+                elif data['cmd'] == 'DEVICE_RESET':
+                    self.device_map = {}
+                    self.save_devices()
+                    devices = str(self.device_map)[1:-1]
+                    self.mqtt.publish(mqtt_pub, ''.join(['{"devices":"', devices, '"}']))
         else:
             print("Unknown topic: '{}'".format(channel))
 
@@ -89,14 +96,14 @@ class AnnounceController:
 
     def load_devices(self):
         try:
-            with open('data.json') as f:
+            with open(self.DEVICE_FILE) as f:
                 self.device_map = json.load(f)
         except FileNotFoundError:
             self.device_map = {}
 
     def save_devices(self):
         data = json.dumps(self.device_map)
-        with open("devices.json", "w") as f:
+        with open(self.DEVICE_FILE, "w") as f:
             f.write(data)
 
     def start(self):
