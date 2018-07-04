@@ -18,6 +18,8 @@ class AnnounceController:
         self.mqtt_sub_sys = ''.join([self.MQTT_SUB, '/', self.MQTT_SYS])
 
         self.mqtt = self.init_mqtt()
+        self.device_map = {}
+        self.load_devices()
 
     def init_mqtt(self):
         client = MQTTClient.Client(self.get_mac())
@@ -49,17 +51,34 @@ class AnnounceController:
             mac = data['mac']
             mqtt_pub = ''.join([self.MQTT_SUB, '/', mac])
             if 'cmd' in data:
+                # Handle RTC update requests
                 if data['cmd'] == 'RTC':
                     self.mqtt.publish(mqtt_pub, ''.join(['{"time":"', self.get_time(), '"}']))
+
+                # Handle device name requests
+                elif data['cmd'] == 'DEVICE_ADD':
+                    self.device_map[data['device_mac']] = data['device_name']
+                    self.save_devices()
+                elif data['cmd'] == 'DEVICE_DEL':
+                    if data['device_mac'] in self.device_map:
+                        del self.device_map[data['device_mac']]
+                        self.save_devices()
+                elif data['cmd'] == 'DEVICE_GET':
+                    if data['device_mac'] in self.device_map:
+                        self.mqtt.publish(mqtt_pub, ''.join(['{"mac":"', data['device_mac'], '", "name":"', self.device_map[data['device_mac']], '"}']))
+                    else:
+                        self.mqtt.publish(mqtt_pub, ''.join(['{"mac":"', data['device_mac'], '", "name":"', data['device_mac'], '"}']))
+                elif data['cmd'] == 'DEVICE_GET_ALL':
+                    if data['device_mac'] in self.device_map:
+                        self.mqtt.publish(mqtt_pub, ''.join(['{"devices":"', json.loads(self.device_map), '"}']))
         else:
             print("Unknown topic: '{}'".format(channel))
 
     @staticmethod
     def get_mac():
         mac_hex = hex(getnode())[2:]
-        mac = ':'.join(hex(getnode())[2:][i : i + 2] for i in range(0, 11, 2)).upper()
+        mac = ':'.join(mac_hex[i: i + 2] for i in range(0, 11, 2)).upper()
         return mac
-
 
     @staticmethod
     def get_time():
@@ -67,6 +86,18 @@ class AnnounceController:
         (dt, micro) = t.strftime('%Y:%m:%d:%H:%M:%S/%f').split('/')
         (ms, us) = str(int(micro) / 1000).split('.')
         return ''.join([dt, ':', ms, ':', us])
+
+    def load_devices(self):
+        try:
+            with open('data.json') as f:
+                self.device_map = json.load(f)
+        except FileNotFoundError:
+            self.device_map = {}
+
+    def save_devices(self):
+        data = json.dumps(self.device_map)
+        with open("devices.json", "w") as f:
+            f.write(data)
 
     def start(self):
         print('Listening for {}...'.format(self.mqtt_sub_app))
@@ -89,3 +120,4 @@ if __name__ == '__main__':
 
 # TODO: Create UI for monitoring, manual updates, and button config
 # TODO: add mqtt security
+# TODO: jsonify pubs rather than string building
