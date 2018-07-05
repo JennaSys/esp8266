@@ -84,6 +84,11 @@ class AnnounceController:
                     self.save_devices()
                     pub_data['devices'] = str(self.device_map)[1:-1]
                     self.mqtt.publish(mqtt_pub, json.dumps(pub_data))
+
+                # Handle STATUS update requests
+                if data['cmd'] == 'STATUS':
+                    status = data['led']
+                    print('{} status: {}'.format(mac, status))
         else:
             print("Unknown topic: '{}'".format(topic))
 
