@@ -150,9 +150,3 @@ if __name__ == '__main__':
 # TODO: move to announce_esp
 # TODO: add security (user/pwd/cert?)
 # TODO: deepsleep mode
-
-"""
-import mqtt2
-m=mqtt2.Announce()
-m.start()
-"""
