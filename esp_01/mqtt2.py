@@ -12,7 +12,7 @@ from mqtt_config import config
 class Announce:
     MQTT_BROKER = config['broker']
     MQTT_SUB = config['topic_root']
-    MQTT_PUB = config['topic_app']
+    MQTT_APP = config['topic_app']
     MQTT_SYS = config['topic_sys']
 
     PIN_LED = 5  # D1
@@ -20,7 +20,7 @@ class Announce:
 
     def __init__(self):
         self.mqtt_sub = ''.join([self.MQTT_SUB, '/', self.get_mac()])
-        self.mqtt_pub = ''.join([self.MQTT_SUB, '/', self.MQTT_PUB])
+        self.mqtt_pub = ''.join([self.MQTT_SUB, '/', self.MQTT_APP])
         self.mqtt_pub_sys = ''.join([self.MQTT_SUB, '/', self.MQTT_SYS])
 
         self.mqtt = self.init_mqtt()
@@ -44,7 +44,10 @@ class Announce:
         return btn
 
     def init_rtc(self):
-        self.mqtt.publish(self.mqtt_pub_sys, ''.join(['{"mac":"', self.get_mac(), '", "cmd":"RTC"}']))
+        pub_data = {}
+        pub_data['mac'] = self.get_mac()
+        pub_data['cmd'] = 'RTC'
+        self.mqtt.publish(self.mqtt_pub_sys, json.dumps(pub_data))
 
     def init_oled(self):
         oled_width = 128
@@ -96,6 +99,18 @@ class Announce:
                 self.led.off()
             elif data['led'] == 'OFF':
                 self.led.on()
+        elif 'cmd' in data:
+            if data['cmd'] == 'STATUS':
+                pub_data = {}
+                pub_data['mac'] = self.get_mac()
+                pub_data['cmd'] = 'STATUS'
+                # pub_data['time'] = ':'.join(map(str, self.rtc.datetime()))
+                if self.led.value():
+                    pub_data['led'] = 'OFF'
+                else:
+                    pub_data['led'] = 'ON'
+
+                self.mqtt.publish(self.mqtt_pub_sys, json.dumps(pub_data))
         elif 'time' in data:  # {"time":"2017:8:23:1:12:48:0:0"}
             self.update_display(['time', ' ' + data['time']])
             # temp_time = tuple(int(x) for x in data['time'].split(':'))
@@ -121,13 +136,19 @@ class Announce:
             curr_time = time.ticks_ms()
             delta = time.ticks_diff(curr_time, self.prev_btn_press)
             self.prev_btn_press = time.ticks_ms()
+
             if delta > 20:  # Ignore any triggers < 20ms
                 # self.led.value(not self.led.value())
-                curr_time = ':'.join(map(str, self.rtc.datetime()))
+                pub_data = {}
+                pub_data['mac'] = self.get_mac()
+                pub_data['time'] = ':'.join(map(str, self.rtc.datetime()))
+
                 if self.led.value():
-                    self.mqtt.publish(self.mqtt_pub, ''.join(['{"mac":"', self.get_mac(), '", "cmd":"HELP", "time":"', curr_time, '"}']))
+                    pub_data['cmd'] = 'HELP'
                 else:
-                    self.mqtt.publish(self.mqtt_pub, ''.join(['{"mac":"', self.get_mac(), '", "cmd":"CANCEL", "time":"', curr_time, '"}']))
+                    pub_data['cmd'] = 'CANCEL'
+
+                self.mqtt.publish(self.mqtt_pub, json.dumps(pub_data))
 
     def start(self):
         print('Listening for {}...'.format(self.mqtt_sub))
@@ -150,3 +171,4 @@ if __name__ == '__main__':
 # TODO: move to announce_esp
 # TODO: add security (user/pwd/cert?)
 # TODO: deepsleep mode
+# TODO: add pub for status request
