@@ -100,6 +100,7 @@ class Announce:
             elif data['led'] == 'OFF':
                 self.led.on()
         elif 'cmd' in data:
+            self.update_display(['cmd', ' ' + data['cmd']])
             if data['cmd'] == 'STATUS':
                 pub_data = {}
                 pub_data['mac'] = self.get_mac()
@@ -166,9 +167,7 @@ if __name__ == '__main__':
     announce = Announce()
     announce.start()
 
-# TODO: build MQTT data with dictionaries and convert to JSON to send
 # TODO: Timer pub on announce/system for heartbeat with mac payload
 # TODO: move to announce_esp
 # TODO: add security (user/pwd/cert?)
 # TODO: deepsleep mode
-# TODO: add pub for status request
