@@ -69,14 +69,12 @@ class AnnounceController:
                         del self.device_map[data['device_mac']]
                         self.save_devices()
                 elif data['cmd'] == 'DEVICE_GET':
+                    pub_data['device_mac'] = data['device_mac']
                     if data['device_mac'] in self.device_map:
-                        pub_data['device_mac'] = data['device_mac']
                         pub_data['device_name'] = self.device_map[data['device_mac']]
-                        self.mqtt.publish(mqtt_pub, json.dumps(pub_data))
-                    else:
-                        pub_data['device_mac'] = data['device_mac']
+                    else:  # Return MAC for name if it doesn't exist
                         pub_data['device_name'] = data['device_mac']
-                        self.mqtt.publish(mqtt_pub, json.dumps(pub_data))
+                    self.mqtt.publish(mqtt_pub, json.dumps(pub_data))
                 elif data['cmd'] == 'DEVICE_GET_ALL':
                     pub_data['devices'] = str(self.device_map)[1:-1]
                     self.mqtt.publish(mqtt_pub, json.dumps(pub_data))
