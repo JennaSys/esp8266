@@ -171,3 +171,4 @@ if __name__ == '__main__':
 # TODO: move to announce_esp
 # TODO: add security (user/pwd/cert?)
 # TODO: deepsleep mode
+# TODO: disable REPL in production mode
