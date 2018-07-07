@@ -12,6 +12,8 @@ log.setLevel(logging.INFO)
 class MainWindow(QWidget):
 
     # MSG_INIT = "Retrieving device status..."
+    APP_TITLE = "Assistance System"
+    APP_ICON = "./resources/app.ico"
 
     def __init__(self):
         super().__init__()
@@ -24,7 +26,6 @@ class MainWindow(QWidget):
 
 
     def initUI(self):
-
 
         for device_id, device_name in self.devices.items():
             line_item = DeviceInfo(device_id, device_name)
@@ -44,8 +45,8 @@ class MainWindow(QWidget):
         # self.resize(300, 600)
         self.setMinimumWidth(300)
         self.adjustSize()
-        self.setWindowTitle('Assistance System')
-        self.setWindowIcon(QIcon('./resources/app.ico'))
+        self.setWindowTitle(self.APP_TITLE)
+        self.setWindowIcon(QIcon(self.APP_ICON))
         self.show()
 
     def draw_line(self):
@@ -56,6 +57,8 @@ class MainWindow(QWidget):
 
 
 class DeviceInfo(QHBoxLayout):
+
+    APP_ICON = "./resources/app.ico"
 
     def __init__(self, device_id, device_name):
         super().__init__()
@@ -68,12 +71,12 @@ class DeviceInfo(QHBoxLayout):
     def initUI(self):
         fnt_name = QFont()
         fnt_name.setPointSize(12)
-        # fnt_name.setBold(True)
         lbl_height = 24
 
         self.ico_off = QIcon(QPixmap('./resources/light_green.png'))
         self.ico_on = QIcon(QPixmap('./resources/light_red.png'))
         self.ico_xx = QIcon(QPixmap('./resources/light_off.png'))
+        self.ico_app = QIcon(QPixmap(self.APP_ICON))
 
         self.btn_status = QPushButton()
         self.btn_status.setCheckable(True)
@@ -122,7 +125,7 @@ class DeviceInfo(QHBoxLayout):
     def btn_rename_click(self):
         msg = QInputDialog()
         msg.setWindowTitle("Rename Device")
-        msg.setWindowIcon(QIcon('./resources/app.ico'))
+        msg.setWindowIcon(self.ico_app)
         msg.setLabelText("Enter the new device name for [{}]:".format(self.device_name))
         msg.setTextValue(self.device_name)
         result = msg.exec()
@@ -133,7 +136,7 @@ class DeviceInfo(QHBoxLayout):
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Critical)
         msg.setWindowTitle("DELETE DEVICE")
-        msg.setWindowIcon(QIcon('./resources/app.ico'))
+        msg.setWindowIcon(self.ico_app)
         msg.setText("Remove [{}] from the list?".format(self.device_name))
         msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
         msg.setDefaultButton(QMessageBox.Cancel)
@@ -145,7 +148,7 @@ class DeviceInfo(QHBoxLayout):
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Information)
         msg.setWindowTitle("Device Information")
-        msg.setWindowIcon(QIcon('./resources/app.ico'))
+        msg.setWindowIcon(self.ico_app)
         msg.setText("Device Name: {}".format(self.device_name))
         msg.setInformativeText("Device ID: {}".format(self.device_id))
         msg.setStandardButtons(QMessageBox.Ok)
@@ -156,3 +159,7 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     gui = MainWindow()
     sys.exit(app.exec_())
+
+
+# TODO: sort device list by name before displaying
+# TODO: create mqtt module and hook UI to it

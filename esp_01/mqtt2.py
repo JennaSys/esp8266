@@ -15,6 +15,11 @@ class Announce:
     MQTT_APP = config['topic_app']
     MQTT_SYS = config['topic_sys']
 
+    # # ESP-01
+    # PIN_LED = 2
+    # PIN_BTN = 0
+
+    # ESP-12
     PIN_LED = 5  # D1
     PIN_BTN = 4  # D2
 
@@ -167,7 +172,7 @@ if __name__ == '__main__':
     announce = Announce()
     announce.start()
 
-# TODO: Timer pub on announce/system for heartbeat with mac payload
+# TODO: Timer pub on announce/system for heartbeat with mac & status payload
 # TODO: move to announce_esp
 # TODO: add security (user/pwd/cert?)
 # TODO: deepsleep mode
