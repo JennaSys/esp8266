@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QFrame, QStatusBar, QApplication)
+from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QLineEdit, QFrame, QStatusBar, QMessageBox, QInputDialog, QApplication)
 from PyQt5.QtGui import (QIcon, QFont, QPixmap)
 from PyQt5.QtCore import Qt
 import sys
@@ -16,14 +16,19 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
 
+        self.devices = {'ABC': 'Garage', 'DEF': 'Living Room', 'GHI': 'Kitchen'}
+        self.device_line = {}
+
         self.main_layout = QVBoxLayout()
         self.initUI()
 
-    def initUI(self):
-        devices = {'ABC':'Garage', 'DEF':'Living Room', 'GHI':'Kitchen'}
 
-        for device_id, device_name in devices.items():
+    def initUI(self):
+
+
+        for device_id, device_name in self.devices.items():
             line_item = DeviceInfo(device_id, device_name)
+            self.device_line[device_id] = line_item
             self.main_layout.addLayout(line_item)
             self.main_layout.addWidget(self.draw_line())
 
@@ -36,9 +41,11 @@ class MainWindow(QWidget):
         self.setLayout(self.main_layout)
 
         # self.setGeometry(300, 300, 280, 170)
-        self.resize(300, 600)
+        # self.resize(300, 600)
+        self.setMinimumWidth(300)
+        self.adjustSize()
         self.setWindowTitle('Assistance System')
-        self.setWindowIcon(QIcon('./resources/vocademy.ico'))
+        self.setWindowIcon(QIcon('./resources/app.ico'))
         self.show()
 
     def draw_line(self):
@@ -68,11 +75,11 @@ class DeviceInfo(QHBoxLayout):
         self.ico_on = QIcon(QPixmap('./resources/light_red.png'))
         self.ico_xx = QIcon(QPixmap('./resources/light_off.png'))
 
-        self.btn = QPushButton()
-        self.btn.setCheckable(True)
-        self.btn.setIcon(self.ico_off)
-        self.btn.clicked.connect(self.btn_click)
-        self.addWidget(self.btn)
+        self.btn_status = QPushButton()
+        self.btn_status.setCheckable(True)
+        self.btn_status.setIcon(self.ico_off)
+        self.btn_status.clicked.connect(self.btn_status_click)
+        self.addWidget(self.btn_status)
 
         self.lbl_name = QLabel()
         self.lbl_name.setAlignment(Qt.AlignLeft)
@@ -86,18 +93,64 @@ class DeviceInfo(QHBoxLayout):
         self.btn_ren = QPushButton()
         ico_ren = QIcon(QPixmap('./resources/edit.png'))
         self.btn_ren.setIcon(ico_ren)
+        self.btn_ren.clicked.connect(self.btn_rename_click)
         self.addWidget(self.btn_ren)
 
         self.btn_del = QPushButton()
         ico_del = QIcon(QPixmap('./resources/delete.png'))
         self.btn_del.setIcon(ico_del)
+        self.btn_del.clicked.connect(self.btn_delete_click)
         self.addWidget(self.btn_del)
 
-    def btn_click(self, pressed):
+        self.btn_info = QPushButton()
+        ico_info = QIcon(QPixmap('./resources/info.png'))
+        self.btn_info.setIcon(ico_info)
+        self.btn_info.clicked.connect(self.btn_info_click)
+        self.addWidget(self.btn_info)
+
+    def btn_status_click(self, pressed):
         if pressed:
-            self.btn.setIcon(self.ico_on)
+            self.btn_status.setIcon(self.ico_on)
         else:
-            self.btn.setIcon(self.ico_off)
+            self.btn_status.setIcon(self.ico_off)
+
+    def btn_status_set(self, status):
+        self.btn_status.setChecked(status)
+        self.btn_status_click(status)
+
+
+    def btn_rename_click(self):
+        msg = QInputDialog()
+        msg.setWindowTitle("Rename Device")
+        msg.setWindowIcon(QIcon('./resources/app.ico'))
+        msg.setLabelText("Enter the new device name for [{}]:".format(self.device_name))
+        msg.setTextValue(self.device_name)
+        result = msg.exec()
+        if result:
+            print(msg.textValue())
+
+    def btn_delete_click(self):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Critical)
+        msg.setWindowTitle("DELETE DEVICE")
+        msg.setWindowIcon(QIcon('./resources/app.ico'))
+        msg.setText("Remove [{}] from the list?".format(self.device_name))
+        msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+        msg.setDefaultButton(QMessageBox.Cancel)
+        result = msg.exec()
+        if result == QMessageBox.Ok:
+            print("Deleting {} ({})".format(self.device_name, self.device_id))
+
+    def btn_info_click(self):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Information)
+        msg.setWindowTitle("Device Information")
+        msg.setWindowIcon(QIcon('./resources/app.ico'))
+        msg.setText("Device Name: {}".format(self.device_name))
+        msg.setInformativeText("Device ID: {}".format(self.device_id))
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec()
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
