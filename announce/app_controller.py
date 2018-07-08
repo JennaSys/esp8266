@@ -5,11 +5,12 @@ import paho.mqtt.client as MQTTClient
 from uuid import getnode
 import logging
 
-from announce_config import config
+from assistance_config import config
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(funcName)s() --> %(message)s')
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
+
 
 class AnnounceController:
     MQTT_BROKER = config['broker']
@@ -22,14 +23,16 @@ class AnnounceController:
         self.mqtt_sub_app = ''.join([self.MQTT_SUB, '/', self.MQTT_APP])
         self.mqtt_sub_sys = ''.join([self.MQTT_SUB, '/', self.MQTT_SYS])
 
+        self.mac = self.get_mac()
+
         self.mqtt = self.init_mqtt()
         self.device_map = {}
         self.load_devices()
 
     def init_mqtt(self):
-        client = MQTTClient.Client(self.get_mac())
+        client = MQTTClient.Client(self.mac)
         client.on_message = self.mqtt_process_sub
-        client.will_set(self.mqtt_sub_sys, '{"msg":"OOPS - app controller crashed!"}')
+        client.will_set(self.mqtt_sub_sys, '{{"mac":"{}", "msg":"OOPS - app controller crashed!"}}'.format(self.mac))
         time.sleep(0.1)
         client.connect(self.MQTT_BROKER)
         client.subscribe(self.mqtt_sub_app)

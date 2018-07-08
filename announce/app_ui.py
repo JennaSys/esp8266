@@ -2,7 +2,10 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLa
 from PyQt5.QtGui import (QIcon, QFont, QPixmap)
 from PyQt5.QtCore import Qt
 import sys
+import signal
 import logging
+
+from app_mqtt import AssistanceApp
 
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(funcName)s() --> %(message)s')
@@ -10,7 +13,7 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
-class MainWindow(QWidget):
+class AssistanceUI(QWidget):
 
     APP_ICON = "./resources/app.ico"
     APP_TITLE = "Assistance System"
@@ -21,13 +24,15 @@ class MainWindow(QWidget):
         self.devices = {'ABC': 'Garage', 'DEF': 'Living Room', 'GHI': 'Kitchen'}
         self.device_line = {}
 
-        self.main_layout = QVBoxLayout()
-        self.initUI()
+        self.mqtt = self.init_mqtt()
 
-    def initUI(self):
+        self.main_layout = QVBoxLayout()
+        self.init_ui()
+
+    def init_ui(self):
 
         for device_id, device_name in self.devices.items():
-            line_item = DeviceInfo(device_id, device_name)
+            line_item = DevicePanel(device_id, device_name)
             self.device_line[device_id] = line_item
             self.main_layout.addLayout(line_item)
             self.main_layout.addWidget(self.draw_line())
@@ -46,7 +51,10 @@ class MainWindow(QWidget):
         self.adjustSize()
         self.setWindowTitle(self.APP_TITLE)
         self.setWindowIcon(QIcon(self.APP_ICON))
-        self.show()
+
+    def init_mqtt(self):
+        mqtt = AssistanceApp()
+        return mqtt
 
     @staticmethod
     def draw_line():
@@ -58,17 +66,18 @@ class MainWindow(QWidget):
     def update_devices(self, devices):
         self.devices = devices
         self.device_line = {}
-        # self.initUI()
         log.info('Devices updated: {}'.format(self.devices))
+        self.clearLayout(self.main_layout)
+        self.init_ui()
 
     def remove_device(self, device_id):
         for i in range(0,self.main_layout.count(),2):
             layout_item = self.main_layout.itemAt(i)
-            if type(layout_item) == DeviceInfo:
+            if type(layout_item) == DevicePanel:
                 if layout_item.device_id == device_id:
-                    self.clearLayout(layout_item)
-                    self.main_layout.removeItem(layout_item)           # Delete device
-                    self.main_layout.takeAt(i).widget().deleteLater()  # Delete dividing line
+                    self.clearLayout(layout_item)                       # Remove panel widgeta
+                    self.main_layout.removeItem(layout_item)            # Delete device panel
+                    self.main_layout.takeAt(i).widget().deleteLater()   # Delete dividing line
                     self.repaint()
                     break
 
@@ -80,7 +89,7 @@ class MainWindow(QWidget):
                 child.widget().deleteLater()
 
 
-class DeviceInfo(QHBoxLayout):
+class DevicePanel(QHBoxLayout):
 
     APP_ICON = "./resources/app.ico"
 
@@ -90,9 +99,9 @@ class DeviceInfo(QHBoxLayout):
         self.device_id = device_id
         self.device_name = device_name
 
-        self.initUI()
+        self.init_panel()
 
-    def initUI(self):
+    def init_panel(self):
         fnt_name = QFont()
         fnt_name.setPointSize(12)
         lbl_height = 24
@@ -169,7 +178,6 @@ class DeviceInfo(QHBoxLayout):
         if result == QMessageBox.Ok:
             print("Deleting {} ({})".format(self.device_name, self.device_id))
 
-
     def btn_info_click(self):
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Information)
@@ -182,9 +190,21 @@ class DeviceInfo(QHBoxLayout):
 
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    gui = MainWindow()
-    sys.exit(app.exec_())
+    try:
+        app = QApplication(sys.argv)
+        assistance = AssistanceUI()
+
+        signal.signal(signal.SIGINT, signal.SIG_DFL)  # trap ctrl-c for exit
+        app.aboutToQuit.connect(assistance.mqtt.stop)
+
+        assistance.show()
+
+        sys.exit(app.exec_())
+
+    except KeyboardInterrupt:
+        print("Ctrl-C pressed")
+    except Exception as e:
+        log.error("Error: {}".format(e))
 
 
 # TODO: create mqtt module and hook UI to it (device list maintenance/led status listening & updates)

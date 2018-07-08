@@ -6,10 +6,8 @@ import logging
 import sys
 import paho.mqtt.client as MQTTClient
 from uuid import getnode
-from PyQt5 import QtWidgets, QtCore
 
-from announce_config import config
-from app_ui import MainWindow
+from assistance_config import config
 
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(funcName)s() --> %(message)s')
@@ -17,7 +15,7 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
-class AnnounceApp:
+class AssistanceApp:
 
     MQTT_BROKER = config['broker']
     MQTT_SUB = config['topic_root']
@@ -32,29 +30,14 @@ class AnnounceApp:
 
         self.devices = {}
 
-        self.app = None
-        self.gui = None
-
         self.mqtt = self.init_mqtt()
         time.sleep(0.1)
-        self.mqtt_start()
-
-        self.start_ui()
-        self.get_devices()
-
-    def start_ui(self):
-        signal.signal(signal.SIGINT, signal.SIG_DFL)  # trap ctrl-c for exit
-        self.app = QtWidgets.QApplication(sys.argv)
-        self.app.aboutToQuit.connect(self.mqtt_stop)
-        self.gui = MainWindow()
-        self.gui.show()
-
-        sys.exit(self.app.exec_())
+        self.start()
 
     def init_mqtt(self):
-        client = MQTTClient.Client(self.get_mac())
-        client.on_message = self.mqtt_process
-        client.will_set(self.mqtt_pub_sys, '{{"msg":"OOPS - {} crashed!"}}'.format(self.mac))
+        client = MQTTClient.Client(self.mac)
+        client.on_message = self.process_message
+        client.will_set(self.mqtt_pub_sys, '{{"mac":"{}","msg":"OOPS - {} crashed!"}}'.format(self.mac, self.mac))
         time.sleep(0.1)
         client.connect(self.MQTT_BROKER)
         client.subscribe(self.mqtt_sub_app)
@@ -73,7 +56,7 @@ class AnnounceApp:
         pub_data['cmd'] = 'DEVICE_GET_ALL'
         self.mqtt.publish(self.mqtt_pub_sys, json.dumps(pub_data))
 
-    def mqtt_process(self, client, userdata, msg):
+    def process_message(self, client, userdata, msg):
         topic = msg.topic
         payload = msg.payload.decode("utf-8")
         print("{}: {}".format(topic, payload))
@@ -96,19 +79,13 @@ class AnnounceApp:
             if 'devices' in data:
                 self.devices = ast.literal_eval(''.join(['{', data['devices'], '}']))
                 log.info("Devices Received: {}".format(self.devices))
-                self.gui.remove_device('DEF')
+                # self.gui.remove_device('DEF')
+                self.gui.update_devices(self.devices)
 
-    def mqtt_start(self):
+    def start(self):
         self.mqtt.loop_start()
 
-    def mqtt_stop(self):
+    def stop(self):
         self.mqtt.loop_stop()
         self.mqtt.disconnect()
         log.info('MQTT for {} has been disconnected.'.format(self.mac))
-
-
-if __name__ == '__main__':
-    try:
-        app = AnnounceApp()
-    except KeyboardInterrupt:
-        print("Ctrl-C pressed")
