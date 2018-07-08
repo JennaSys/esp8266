@@ -72,6 +72,9 @@ class AnnounceController:
                     elif data['cmd'] == 'DEVICE_ADD':
                         self.device_map[data['device_mac']] = data['device_name']
                         self.save_devices()
+                    elif data['cmd'] == 'DEVICE_REN':
+                        self.device_map[data['device_mac']] = data['device_name']
+                        self.save_devices()
                     elif data['cmd'] == 'DEVICE_DEL':
                         if data['device_mac'] in self.device_map:
                             del self.device_map[data['device_mac']]
