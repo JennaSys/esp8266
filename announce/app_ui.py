@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QLineEdit, QFrame, QStatusBar, QMessageBox, QInputDialog, QApplication)
+from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QFrame, QStatusBar, QMessageBox, QInputDialog, QApplication)
 from PyQt5.QtGui import (QIcon, QFont, QPixmap)
 from PyQt5.QtCore import Qt
 import sys
@@ -9,11 +9,11 @@ logging.basicConfig(format='%(asctime)s %(levelname)s: %(funcName)s() --> %(mess
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
+
 class MainWindow(QWidget):
 
-    # MSG_INIT = "Retrieving device status..."
-    APP_TITLE = "Assistance System"
     APP_ICON = "./resources/app.ico"
+    APP_TITLE = "Assistance System"
 
     def __init__(self):
         super().__init__()
@@ -23,7 +23,6 @@ class MainWindow(QWidget):
 
         self.main_layout = QVBoxLayout()
         self.initUI()
-
 
     def initUI(self):
 
@@ -37,7 +36,7 @@ class MainWindow(QWidget):
 
         # self.status_bar = QStatusBar()
         # self.main_layout.addWidget(self.status_bar)
-        # self.status_bar.showMessage(self.MSG_INIT)
+        # self.status_bar.showMessage("Retrieving device status...")
 
         self.setLayout(self.main_layout)
 
@@ -49,11 +48,36 @@ class MainWindow(QWidget):
         self.setWindowIcon(QIcon(self.APP_ICON))
         self.show()
 
-    def draw_line(self):
+    @staticmethod
+    def draw_line():
         line = QFrame()
-        line.setFrameShape(QFrame.HLine);
-        line.setFrameShadow(QFrame.Sunken);
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
         return line
+
+    def update_devices(self, devices):
+        self.devices = devices
+        self.device_line = {}
+        # self.initUI()
+        log.info('Devices updated: {}'.format(self.devices))
+
+    def remove_device(self, device_id):
+        for i in range(0,self.main_layout.count(),2):
+            layout_item = self.main_layout.itemAt(i)
+            if type(layout_item) == DeviceInfo:
+                if layout_item.device_id == device_id:
+                    self.clearLayout(layout_item)
+                    self.main_layout.removeItem(layout_item)           # Delete device
+                    self.main_layout.takeAt(i).widget().deleteLater()  # Delete dividing line
+                    self.repaint()
+                    break
+
+    @staticmethod
+    def clearLayout(layout):
+        while layout.count():
+            child = layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
 
 
 class DeviceInfo(QHBoxLayout):
@@ -121,7 +145,6 @@ class DeviceInfo(QHBoxLayout):
         self.btn_status.setChecked(status)
         self.btn_status_click(status)
 
-
     def btn_rename_click(self):
         msg = QInputDialog()
         msg.setWindowTitle("Rename Device")
@@ -131,6 +154,8 @@ class DeviceInfo(QHBoxLayout):
         result = msg.exec()
         if result:
             print(msg.textValue())
+            self.device_name = msg.textValue()
+            self.lbl_name.setText(self.device_name)
 
     def btn_delete_click(self):
         msg = QMessageBox()
@@ -143,6 +168,7 @@ class DeviceInfo(QHBoxLayout):
         result = msg.exec()
         if result == QMessageBox.Ok:
             print("Deleting {} ({})".format(self.device_name, self.device_id))
+
 
     def btn_info_click(self):
         msg = QMessageBox()
@@ -161,5 +187,10 @@ if __name__ == '__main__':
     sys.exit(app.exec_())
 
 
+# TODO: create mqtt module and hook UI to it (device list maintenance/led status listening & updates)
+# TODO: auto-add new devices to list
 # TODO: sort device list by name before displaying
-# TODO: create mqtt module and hook UI to it
+# TODO: save device list locally for backup
+# TODO: clear button indicator until status retrieved from device
+# TODO: Add watchdog timer for devices - if one doesn't ping in a period of time, mark it as unavailable
+
