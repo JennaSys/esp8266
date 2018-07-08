@@ -50,12 +50,6 @@ class AssistanceApp:
         mac = ''.join(mac_hex[i: i + 2] for i in range(0, 11, 2)).upper()
         return mac
 
-    def get_devices(self):
-        pub_data = {}
-        pub_data['mac'] = self.mac
-        pub_data['cmd'] = 'DEVICE_GET_ALL'
-        self.mqtt.publish(self.mqtt_pub_sys, json.dumps(pub_data))
-
     def process_message(self, client, userdata, msg):
         topic = msg.topic
         payload = msg.payload.decode("utf-8")
@@ -80,7 +74,49 @@ class AssistanceApp:
                 self.devices = ast.literal_eval(''.join(['{', data['devices'], '}']))
                 log.info("Devices Received: {}".format(self.devices))
                 # self.gui.remove_device('DEF')
-                self.gui.update_devices(self.devices)
+                # self.gui.update_devices(self.devices)
+
+    def device_add(self, device_mac, device_name):
+        pub_data = {}
+        pub_data['mac'] = self.mac
+        pub_data['cmd'] = 'DEVICE_ADD'
+        pub_data['device_mac'] = device_mac
+        pub_data['device_name'] = device_name
+        self.mqtt.publish(self.mqtt_pub_sys, json.dumps(pub_data))
+
+    def device_ren(self, device_mac, device_name):
+        pub_data = {}
+        pub_data['mac'] = self.mac
+        pub_data['cmd'] = 'DEVICE_REN'
+        pub_data['device_mac'] = device_mac
+        pub_data['device_name'] = device_name
+        self.mqtt.publish(self.mqtt_pub_sys, json.dumps(pub_data))
+
+    def device_del(self, device_mac):
+        pub_data = {}
+        pub_data['mac'] = self.mac
+        pub_data['cmd'] = 'DEVICE_DEL'
+        pub_data['device_mac'] = device_mac
+        self.mqtt.publish(self.mqtt_pub_sys, json.dumps(pub_data))
+
+    def device_get(self, device_mac):
+        pub_data = {}
+        pub_data['mac'] = self.mac
+        pub_data['cmd'] = 'DEVICE_GET'
+        pub_data['device_mac'] = device_mac
+        self.mqtt.publish(self.mqtt_pub_sys, json.dumps(pub_data))
+
+    def device_get_all(self):
+        pub_data = {}
+        pub_data['mac'] = self.mac
+        pub_data['cmd'] = 'DEVICE_GET_ALL'
+        self.mqtt.publish(self.mqtt_pub_sys, json.dumps(pub_data))
+
+    def device_reset(self):
+        pub_data = {}
+        pub_data['mac'] = self.mac
+        pub_data['cmd'] = 'DEVICE_RESET'
+        self.mqtt.publish(self.mqtt_pub_sys, json.dumps(pub_data))
 
     def start(self):
         self.mqtt.loop_start()
@@ -89,3 +125,6 @@ class AssistanceApp:
         self.mqtt.loop_stop()
         self.mqtt.disconnect()
         log.info('MQTT for {} has been disconnected.'.format(self.mac))
+
+
+# TODO: test for mqtt id in use and modify if true

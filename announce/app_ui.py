@@ -22,22 +22,21 @@ class AssistanceUI(QWidget):
         super().__init__()
 
         self.devices = {'ABC': 'Garage', 'DEF': 'Living Room', 'GHI': 'Kitchen'}
-        self.device_line = {}
 
         self.mqtt = self.init_mqtt()
 
         self.main_layout = QVBoxLayout()
         self.init_ui()
 
+        self.btn = QPushButton()
+        self.btn.setText('Test')
+        self.btn.clicked.connect(self.btn_click)
+        self.main_layout.addWidget(self.btn)
+
+    def btn_click(self):
+        self.update_devices({'ABC': 'test 1', 'DEF': 'test Room'})
+
     def init_ui(self):
-
-        for device_id, device_name in self.devices.items():
-            line_item = DevicePanel(device_id, device_name)
-            self.device_line[device_id] = line_item
-            self.main_layout.addLayout(line_item)
-            self.main_layout.addWidget(self.draw_line())
-
-        self.main_layout.addStretch(1)
 
         # self.status_bar = QStatusBar()
         # self.main_layout.addWidget(self.status_bar)
@@ -45,12 +44,12 @@ class AssistanceUI(QWidget):
 
         self.setLayout(self.main_layout)
 
-        # self.setGeometry(300, 300, 280, 170)
-        # self.resize(300, 600)
         self.setMinimumWidth(300)
         self.adjustSize()
         self.setWindowTitle(self.APP_TITLE)
         self.setWindowIcon(QIcon(self.APP_ICON))
+
+        self.update_devices(self.devices)
 
     def init_mqtt(self):
         mqtt = AssistanceApp()
@@ -65,28 +64,36 @@ class AssistanceUI(QWidget):
 
     def update_devices(self, devices):
         self.devices = devices
-        self.device_line = {}
         log.info('Devices updated: {}'.format(self.devices))
-        self.clearLayout(self.main_layout)
-        self.init_ui()
+        self.clear_layout(self.main_layout)
+
+        for device_id, device_name in self.devices.items():
+            line_item = DevicePanel(device_id, device_name)
+            self.main_layout.addLayout(line_item)
+            self.main_layout.addWidget(self.draw_line())
+
+        self.main_layout.addStretch(1)
+        self.repaint()
 
     def remove_device(self, device_id):
         for i in range(0,self.main_layout.count(),2):
             layout_item = self.main_layout.itemAt(i)
             if type(layout_item) == DevicePanel:
                 if layout_item.device_id == device_id:
-                    self.clearLayout(layout_item)                       # Remove panel widgeta
+                    self.clear_layout(layout_item)                      # Remove panel widgeta
                     self.main_layout.removeItem(layout_item)            # Delete device panel
                     self.main_layout.takeAt(i).widget().deleteLater()   # Delete dividing line
                     self.repaint()
                     break
 
-    @staticmethod
-    def clearLayout(layout):
+    def clear_layout(self, layout):
         while layout.count():
             child = layout.takeAt(0)
             if child.widget():
                 child.widget().deleteLater()
+            elif type(child) == DevicePanel:
+                self.clear_layout(child)
+                layout.removeItem(child)
 
 
 class DevicePanel(QHBoxLayout):
@@ -162,8 +169,9 @@ class DevicePanel(QHBoxLayout):
         msg.setTextValue(self.device_name)
         result = msg.exec()
         if result:
-            print(msg.textValue())
+            log.info("Renaming {} from '{}' to '{}'".format(self.device_id, self.device_name, msg.textValue()))
             self.device_name = msg.textValue()
+            self.parent().parent().mqtt.device_ren(self.device_id, self.device_name)
             self.lbl_name.setText(self.device_name)
 
     def btn_delete_click(self):
@@ -176,7 +184,9 @@ class DevicePanel(QHBoxLayout):
         msg.setDefaultButton(QMessageBox.Cancel)
         result = msg.exec()
         if result == QMessageBox.Ok:
-            print("Deleting {} ({})".format(self.device_name, self.device_id))
+            log.info("Deleting {} ({})".format(self.device_name, self.device_id))
+            self.parent().parent().mqtt.device_del(self.device_id)
+            self.parent().parent().remove_device(self.device_id)
 
     def btn_info_click(self):
         msg = QMessageBox()
