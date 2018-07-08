@@ -15,14 +15,17 @@ class Announce:
     MQTT_APP = config['topic_app']
     MQTT_SYS = config['topic_sys']
 
-    # # ESP-01
-    # PIN_LED = 2
-    # PIN_BTN = 0
-
-    # ESP-12
-    PIN_LED = 5  # D1
-    PIN_BTN = 4  # D2
-
+    ESP_DEVICE = config['platform']
+    
+    if ESP_DEVICE == 'ESP01':
+        PIN_LED = 2
+        PIN_BTN = 0
+    elif ESP_DEVICE == 'ESP12':
+        PIN_LED = 5  # D1
+        PIN_BTN = 4  # D2
+    else:
+        print('Unknown device [{}]'.format(ESP_DEVICE))
+    
     def __init__(self):
         self.mqtt_sub = ''.join([self.MQTT_SUB, '/', self.get_mac()])
         self.mqtt_pub = ''.join([self.MQTT_SUB, '/', self.MQTT_APP])
@@ -80,7 +83,7 @@ class Announce:
     def init_mqtt(self):
         client = MQTTClient(self.get_mac(), self.MQTT_BROKER)
         client.set_callback(self.mqtt_process_sub)
-        client.set_last_will(self.mqtt_pub_sys, 'OOPS - ' + self.get_mac() + ' crashed!')
+        client.set_last_will(self.mqtt_pub_sys, '{{"msg":"OOPS - ' + self.get_mac() + "}}"' crashed!')
         time.sleep(0.1)
         client.connect()
         client.subscribe(self.mqtt_sub)
@@ -177,3 +180,7 @@ if __name__ == '__main__':
 # TODO: add security (user/pwd/cert?)
 # TODO: deepsleep mode
 # TODO: disable REPL in production mode
+# TODO: add LED effects:  all on/all flash fast/all flash slow/round robin sequence/alt corner sequence/corner flash 1 LED
+# TODO: flash LEDs on loss of network
+# TODO: corner flash 1 LED if battery is low
+# TODO: Add buzzer?
