@@ -27,7 +27,9 @@ class Announce:
         print('Unknown device [{}]'.format(ESP_DEVICE))
     
     def __init__(self):
-        self.mqtt_sub = ''.join([self.MQTT_SUB, '/', self.get_mac()])
+        self.mac = self.get_mac()
+
+        self.mqtt_sub = ''.join([self.MQTT_SUB, '/', self.mac])
         self.mqtt_pub = ''.join([self.MQTT_SUB, '/', self.MQTT_APP])
         self.mqtt_pub_sys = ''.join([self.MQTT_SUB, '/', self.MQTT_SYS])
 
@@ -53,7 +55,7 @@ class Announce:
 
     def init_rtc(self):
         pub_data = {}
-        pub_data['mac'] = self.get_mac()
+        pub_data['mac'] = self.mac
         pub_data['cmd'] = 'RTC'
         self.mqtt.publish(self.mqtt_pub_sys, json.dumps(pub_data))
 
@@ -81,9 +83,9 @@ class Announce:
         return oled
 
     def init_mqtt(self):
-        client = MQTTClient(self.get_mac(), self.MQTT_BROKER)
+        client = MQTTClient(self.mac, self.MQTT_BROKER)
         client.set_callback(self.mqtt_process_sub)
-        client.set_last_will(self.mqtt_pub_sys, '{{"msg":"OOPS - ' + self.get_mac() + "}}"' crashed!')
+        client.set_last_will(self.mqtt_pub_sys, '{{"mac":"{}","cmd":"STATUS","sys":"OFFLINE"}}'.format(self.mac))
         time.sleep(0.1)
         client.connect()
         client.subscribe(self.mqtt_sub)
@@ -107,11 +109,11 @@ class Announce:
                 self.led.off()
             elif data['led'] == 'OFF':
                 self.led.on()
-        elif 'cmd' in data:
+        elif 'cmd' in data:  # {"cmd":"STATUS"}
             self.update_display(['cmd', ' ' + data['cmd']])
             if data['cmd'] == 'STATUS':
                 pub_data = {}
-                pub_data['mac'] = self.get_mac()
+                pub_data['mac'] = self.mac
                 pub_data['cmd'] = 'STATUS'
                 # pub_data['time'] = ':'.join(map(str, self.rtc.datetime()))
                 if self.led.value():
@@ -149,7 +151,7 @@ class Announce:
             if delta > 20:  # Ignore any triggers < 20ms
                 # self.led.value(not self.led.value())
                 pub_data = {}
-                pub_data['mac'] = self.get_mac()
+                pub_data['mac'] = self.mac
                 pub_data['time'] = ':'.join(map(str, self.rtc.datetime()))
 
                 if self.led.value():
