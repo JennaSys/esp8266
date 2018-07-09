@@ -1,8 +1,10 @@
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QFrame, QStatusBar, QMessageBox, QInputDialog, QApplication)
+from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QFrame, QMessageBox, QInputDialog, QApplication, QSpacerItem)
 from PyQt5.QtGui import (QIcon, QFont, QPixmap)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import (Qt, QThread, pyqtSignal, pyqtSlot)
 import sys
 import signal
+import json
+from time import sleep
 import logging
 
 from app_mqtt import AssistanceApp
@@ -17,42 +19,42 @@ class AssistanceUI(QWidget):
 
     APP_ICON = "./resources/app.ico"
     APP_TITLE = "Assistance System"
+    DEVICE_FILE = 'devices.json'
 
     def __init__(self):
         super().__init__()
 
-        self.devices = {'ABC': 'Garage', 'DEF': 'Living Room', 'GHI': 'Kitchen'}
+        self.ico_app = QIcon(QPixmap(self.APP_ICON))
+
+        # self.devices = {'ABC': 'Garage', 'DEF': 'Living Room', 'GHI': 'Kitchen', '5CCF7F1952F7':'ESP8862'}
+        self.devices = {}
+        self.device_panels = {}
 
         self.mqtt = self.init_mqtt()
+
+        self.msg_thread = MessageReceived()
+        self.msg_thread.signal_status.connect(self.btn_status_set)
+        self.msg_thread.signal_devices.connect(self.update_devices)
 
         self.main_layout = QVBoxLayout()
         self.init_ui()
 
-        self.btn = QPushButton()
-        self.btn.setText('Test')
-        self.btn.clicked.connect(self.btn_click)
-        self.main_layout.addWidget(self.btn)
-
-    def btn_click(self):
-        self.update_devices({'ABC': 'test 1', 'DEF': 'test Room'})
+        sleep(2)
+        self.mqtt.device_get_all()
 
     def init_ui(self):
 
-        # self.status_bar = QStatusBar()
-        # self.main_layout.addWidget(self.status_bar)
-        # self.status_bar.showMessage("Retrieving device status...")
-
         self.setLayout(self.main_layout)
 
-        self.setMinimumWidth(300)
+        self.setMinimumWidth(350)
         self.adjustSize()
         self.setWindowTitle(self.APP_TITLE)
-        self.setWindowIcon(QIcon(self.APP_ICON))
+        self.setWindowIcon(self.ico_app)
 
-        self.update_devices(self.devices)
+        # self.update_devices(self.devices)
 
     def init_mqtt(self):
-        mqtt = AssistanceApp()
+        mqtt = AssistanceApp(self.on_status, self.on_devices)
         return mqtt
 
     @staticmethod
@@ -62,18 +64,62 @@ class AssistanceUI(QWidget):
         line.setFrameShadow(QFrame.Sunken)
         return line
 
+    def on_status(self, device_id, status):
+        """callback function for mqtt message that triggers signal to Qt thread"""
+        self.msg_thread.status_received(device_id, status)
+
+    def on_devices(self, devices):
+        """callback function for mqtt message that triggers signal to Qt thread"""
+        self.msg_thread.devices_received(devices)
+
+    @pyqtSlot(str, str)
+    def btn_status_set(self, device_id, status):
+        if device_id in self.device_panels:
+            self.device_panels[device_id].btn_status_set(status)
+        else:
+            self.new_device(device_id, status)
+
+    def new_device(self, device_id, status='OFFLINE'):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Question)
+        msg.setWindowTitle("Add Device")
+        msg.setWindowIcon(self.ico_app)
+        msg.setText("Add device [{}] to the list?".format(device_id))
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.setDefaultButton(QMessageBox.Yes)
+        result = msg.exec()
+        if result == QMessageBox.Yes:
+            log.info("Adding [{}]".format(device_id))
+            self.mqtt.device_add(device_id, device_id)
+            self.add_device(device_id, device_id)
+            self.device_panels[device_id].btn_status_set(status)
+
+    @pyqtSlot(object)
     def update_devices(self, devices):
+        # Rebuild entire UI
         self.devices = devices
+        self.device_panels ={}
         log.info('Devices updated: {}'.format(self.devices))
         self.clear_layout(self.main_layout)
 
-        for device_id, device_name in self.devices.items():
-            line_item = DevicePanel(device_id, device_name)
-            self.main_layout.addLayout(line_item)
-            self.main_layout.addWidget(self.draw_line())
+        for device_id, device_name in sorted(devices.items(), key=lambda x: x[1]):
+            log.debug("Adding device '{}' to UI...".format(device_id))
+            self.add_device(device_id, device_name)
 
         self.main_layout.addStretch(1)
         self.repaint()
+
+    def add_device(self, device_id, device_name):
+        line_item = DevicePanel(device_id, device_name)
+        layout_size = self.main_layout.count()
+        if type(self.main_layout.itemAt(layout_size - 1)) == QSpacerItem:
+            self.main_layout.insertLayout(layout_size - 1, line_item)
+            self.main_layout.insertWidget(layout_size, self.draw_line())
+        else:
+            self.main_layout.addLayout(line_item)
+            self.main_layout.addWidget(self.draw_line())
+        self.device_panels[device_id] = line_item
+        self.mqtt.device_get_status(device_id)
 
     def remove_device(self, device_id):
         for i in range(0,self.main_layout.count(),2):
@@ -83,6 +129,8 @@ class AssistanceUI(QWidget):
                     self.clear_layout(layout_item)                      # Remove panel widgeta
                     self.main_layout.removeItem(layout_item)            # Delete device panel
                     self.main_layout.takeAt(i).widget().deleteLater()   # Delete dividing line
+                    self.device_panels.pop(device_id, None)
+                    self.devices.pop(device_id, None)
                     self.repaint()
                     break
 
@@ -94,6 +142,18 @@ class AssistanceUI(QWidget):
             elif type(child) == DevicePanel:
                 self.clear_layout(child)
                 layout.removeItem(child)
+
+    def load_devices(self):
+        try:
+            with open(self.DEVICE_FILE) as f:
+                self.devices = json.load(f)
+        except FileNotFoundError:
+            self.devices = {}
+
+    def save_devices(self):
+        data = json.dumps(self.devices)
+        with open(self.DEVICE_FILE, "w") as f:
+            f.write(data)
 
 
 class DevicePanel(QHBoxLayout):
@@ -120,7 +180,7 @@ class DevicePanel(QHBoxLayout):
 
         self.btn_status = QPushButton()
         self.btn_status.setCheckable(True)
-        self.btn_status.setIcon(self.ico_off)
+        self.btn_status.setIcon(self.ico_xx)
         self.btn_status.clicked.connect(self.btn_status_click)
         self.addWidget(self.btn_status)
 
@@ -152,14 +212,22 @@ class DevicePanel(QHBoxLayout):
         self.addWidget(self.btn_info)
 
     def btn_status_click(self, pressed):
-        if pressed:
-            self.btn_status.setIcon(self.ico_on)
-        else:
-            self.btn_status.setIcon(self.ico_off)
+        # if pressed:
+        #     self.btn_status.setIcon(self.ico_on)
+        # else:
+        #     self.btn_status.setIcon(self.ico_off)
+        self.parent().parent().mqtt.device_set_status(self.device_id, pressed)
 
     def btn_status_set(self, status):
-        self.btn_status.setChecked(status)
-        self.btn_status_click(status)
+        if status =='OFFLINE':
+            self.btn_status.setChecked(False)
+            self.btn_status.setIcon(self.ico_xx)
+        elif status == 'ON':
+            self.btn_status.setChecked(True)
+            self.btn_status.setIcon(self.ico_on)
+        elif status == 'OFF':
+            self.btn_status.setChecked(False)
+            self.btn_status.setIcon(self.ico_off)
 
     def btn_rename_click(self):
         msg = QInputDialog()
@@ -199,6 +267,21 @@ class DevicePanel(QHBoxLayout):
         msg.exec()
 
 
+class MessageReceived(QThread):
+    """Signal used to connect the mqqt message thread to the Qt GUI thread"""
+    signal_status = pyqtSignal(str, str)
+    signal_devices = pyqtSignal(object)
+
+    def __init__(self):
+        QThread.__init__(self)
+
+    def status_received(self, device_id, status):
+        self.signal_status.emit(device_id, status)
+
+    def devices_received(self, devices):
+        self.signal_devices.emit(devices)
+
+
 if __name__ == '__main__':
     try:
         app = QApplication(sys.argv)
@@ -217,10 +300,6 @@ if __name__ == '__main__':
         log.error("Error: {}".format(e))
 
 
-# TODO: create mqtt module and hook UI to it (device list maintenance/led status listening & updates)
-# TODO: auto-add new devices to list
-# TODO: sort device list by name before displaying
 # TODO: save device list locally for backup
-# TODO: clear button indicator until status retrieved from device
 # TODO: Add watchdog timer for devices - if one doesn't ping in a period of time, mark it as unavailable
 
