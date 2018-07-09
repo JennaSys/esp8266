@@ -183,6 +183,7 @@ if __name__ == '__main__':
 # TODO: deepsleep mode
 # TODO: disable REPL in production mode
 # TODO: add LED effects:  all on/all flash fast/all flash slow/round robin sequence/alt corner sequence/corner flash 1 LED
-# TODO: flash LEDs on loss of network
+# TODO: round robin flash LEDs on loss of network
+# TODO: flash LEDs on loss of broker connection
 # TODO: corner flash 1 LED if battery is low
 # TODO: Add buzzer?
