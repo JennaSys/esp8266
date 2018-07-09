@@ -1,9 +1,7 @@
 import time
 import json
 import ast
-import signal
 import logging
-import sys
 import paho.mqtt.client as MQTTClient
 from uuid import getnode
 from datetime import datetime
@@ -36,8 +34,6 @@ class AssistanceApp(QObject):
 
         self.cb_devices = cb_devices
         self.cb_status = cb_status
-
-        self.devices = {}
 
         self.mqtt = self.init_mqtt()
         time.sleep(0.1)
@@ -92,9 +88,9 @@ class AssistanceApp(QObject):
                             self.cb_status(mac, data['sys'])
             elif channel == self.mac:
                 if 'devices' in data:
-                    self.devices = ast.literal_eval(''.join(['{', data['devices'], '}']))
-                    log.info("Devices Received: {}".format(self.devices))
-                    self.cb_devices(self.devices)
+                    devices = ast.literal_eval(''.join(['{', data['devices'], '}']))
+                    log.info("Devices Received: {}".format(devices))
+                    self.cb_devices(devices)
         except Exception as e:
             log.error("Error: {} -- Payload: [{}]".format(e, payload))
 
@@ -107,6 +103,11 @@ class AssistanceApp(QObject):
         else:
             pub_data['cmd'] = 'CANCEL'
         self.mqtt.publish(self.mqtt_pub_app, json.dumps(pub_data))
+
+    def device_get_status(self, device_mac):
+        pub_data = {}
+        pub_data['cmd'] = 'STATUS'
+        self.mqtt.publish(''.join([self.MQTT_SUB, '/', device_mac]), json.dumps(pub_data))
 
     def device_add(self, device_mac, device_name):
         pub_data = {}
@@ -143,11 +144,6 @@ class AssistanceApp(QObject):
         pub_data['mac'] = self.mac
         pub_data['cmd'] = 'DEVICE_GET_ALL'
         self.mqtt.publish(self.mqtt_pub_sys, json.dumps(pub_data))
-
-    def device_get_status(self, device_mac):
-        pub_data = {}
-        pub_data['cmd'] = 'STATUS'
-        self.mqtt.publish(''.join([self.MQTT_SUB, '/', device_mac]), json.dumps(pub_data))
 
     def device_reset(self):
         pub_data = {}

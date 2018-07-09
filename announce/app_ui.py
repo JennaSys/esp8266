@@ -112,12 +112,15 @@ class AssistanceUI(QWidget):
     def add_device(self, device_id, device_name):
         line_item = DevicePanel(device_id, device_name)
         layout_size = self.main_layout.count()
+
+        # Insert before panel stretch if it exists
         if type(self.main_layout.itemAt(layout_size - 1)) == QSpacerItem:
             self.main_layout.insertLayout(layout_size - 1, line_item)
             self.main_layout.insertWidget(layout_size, self.draw_line())
         else:
             self.main_layout.addLayout(line_item)
             self.main_layout.addWidget(self.draw_line())
+
         self.device_panels[device_id] = line_item
         self.mqtt.device_get_status(device_id)
 
@@ -126,7 +129,7 @@ class AssistanceUI(QWidget):
             layout_item = self.main_layout.itemAt(i)
             if type(layout_item) == DevicePanel:
                 if layout_item.device_id == device_id:
-                    self.clear_layout(layout_item)                      # Remove panel widgeta
+                    self.clear_layout(layout_item)                      # Remove panel widgets
                     self.main_layout.removeItem(layout_item)            # Delete device panel
                     self.main_layout.takeAt(i).widget().deleteLater()   # Delete dividing line
                     self.device_panels.pop(device_id, None)
@@ -212,10 +215,6 @@ class DevicePanel(QHBoxLayout):
         self.addWidget(self.btn_info)
 
     def btn_status_click(self, pressed):
-        # if pressed:
-        #     self.btn_status.setIcon(self.ico_on)
-        # else:
-        #     self.btn_status.setIcon(self.ico_off)
         self.parent().parent().mqtt.device_set_status(self.device_id, pressed)
 
     def btn_status_set(self, status):
@@ -300,6 +299,6 @@ if __name__ == '__main__':
         log.error("Error: {}".format(e))
 
 
-# TODO: save device list locally for backup
-# TODO: Add watchdog timer for devices - if one doesn't ping in a period of time, mark it as unavailable
+# TODO: save device list locally for backup (File menu?)
+# TODO: reload device list from controller (File menu?)
 
