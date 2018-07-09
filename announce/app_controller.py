@@ -32,7 +32,7 @@ class AnnounceController:
     def init_mqtt(self):
         client = MQTTClient.Client(self.mac)
         client.on_message = self.mqtt_process_sub
-        client.will_set(self.mqtt_sub_sys, '{{"mac":"{}", "msg":"OOPS - app controller crashed!"}}'.format(self.mac))
+        client.will_set(self.mqtt_sub_sys, '{{"mac":"{}","cmd":"STATUS","sys":"OFFLINE"}}'.format(self.mac))
         time.sleep(0.1)
         client.connect(self.MQTT_BROKER)
         client.subscribe(self.mqtt_sub_app)
@@ -49,7 +49,7 @@ class AnnounceController:
             pub_data = {}
 
             channel = topic.split('/')[-1]
-            if channel == 'notify':
+            if channel == self.MQTT_APP:
                 mac = data['mac']
                 mqtt_pub = ''.join([self.MQTT_SUB, '/', mac])
                 if 'cmd' in data:
@@ -59,7 +59,7 @@ class AnnounceController:
                     elif data['cmd'] == 'CANCEL':
                         pub_data['led'] = 'OFF'
                         self.mqtt.publish(mqtt_pub, json.dumps(pub_data))
-            elif channel == 'system':
+            elif channel == self.MQTT_SYS:
                 mac = data['mac']
                 mqtt_pub = ''.join([self.MQTT_SUB, '/', mac])
                 if 'cmd' in data:
@@ -98,8 +98,12 @@ class AnnounceController:
 
                     # Handle STATUS update requests
                     if data['cmd'] == 'STATUS':
-                        status = data['led']
-                        print('{} status: {}'.format(mac, status))
+                        if 'led' in data:
+                            status = data['led']
+                            log.info('{} status: {}'.format(mac, status))
+                        if 'sys' in data:
+                            status = data['sys']
+                            log.info('{} status: {}'.format(mac, status))
             else:
                 print("Unknown topic: '{}'".format(topic))
 
@@ -108,6 +112,7 @@ class AnnounceController:
 
     @staticmethod
     def get_mac():
+        return "SYS__CONTROL"
         mac_hex = hex(getnode())[2:]
         mac = ''.join(mac_hex[i: i + 2] for i in range(0, 11, 2)).upper()
         return mac
