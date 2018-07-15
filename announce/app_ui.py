@@ -1,9 +1,10 @@
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QFrame, QMessageBox, QInputDialog, QApplication, QSpacerItem)
+from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QFrame, QMessageBox, QInputDialog, QApplication, QSpacerItem , QMainWindow, QAction, QStatusBar)
 from PyQt5.QtGui import (QIcon, QFont, QPixmap)
 from PyQt5.QtCore import (Qt, QThread, pyqtSignal, pyqtSlot)
 import sys
 import signal
 import json
+import os
 from time import sleep
 import logging
 
@@ -15,7 +16,7 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
-class AssistanceUI(QWidget):
+class AssistanceUI(QMainWindow):
 
     APP_ICON = "./resources/app.ico"
     APP_TITLE = "Assistance System"
@@ -37,21 +38,54 @@ class AssistanceUI(QWidget):
         self.msg_thread.signal_devices.connect(self.update_devices)
 
         self.main_layout = QVBoxLayout()
+
+        self.init_menu()
         self.init_ui()
+
+        self.statusBar = QStatusBar()
+        self.setStatusBar(self.statusBar)
 
         sleep(2)
         self.mqtt.device_get_all()
 
+    def init_menu(self):
+        mainMenu = self.menuBar()
+        fileMenu = mainMenu.addMenu('File')
+
+        mnu_reload = QAction('&Reload Devices', self)
+        mnu_reload.setStatusTip('Reload device list from system controller')
+        mnu_reload.triggered.connect(self.mqtt.device_get_all)
+        fileMenu.addAction(mnu_reload)
+
+        mnu_backup = QAction('&Backup Devices', self)
+        mnu_backup.setStatusTip('Save the device list to the local drive')
+        mnu_backup.triggered.connect(self.save_devices)
+        fileMenu.addAction(mnu_backup)
+
+        mnu_restore = QAction('Restore &Devices', self)
+        mnu_restore.setStatusTip('Load the device list from the local drive')
+        mnu_restore.triggered.connect(self.load_devices)
+        fileMenu.addAction(mnu_restore)
+
+        fileMenu.addSeparator()
+
+        mnu_exit = QAction('E&xit', self)
+        mnu_exit.setStatusTip('Exit application')
+        mnu_exit.triggered.connect(self.close)
+        fileMenu.addAction(mnu_exit)
+
     def init_ui(self):
 
-        self.setLayout(self.main_layout)
+        # self.setLayout(self.main_layout)
+
+        main_widget = QWidget()
+        main_widget.setLayout(self.main_layout)
+        self.setCentralWidget(main_widget)
 
         self.setMinimumWidth(350)
         self.adjustSize()
         self.setWindowTitle(self.APP_TITLE)
         self.setWindowIcon(self.ico_app)
-
-        # self.update_devices(self.devices)
 
     def init_mqtt(self):
         mqtt = AssistanceApp(self.on_status, self.on_devices)
@@ -110,7 +144,7 @@ class AssistanceUI(QWidget):
         self.repaint()
 
     def add_device(self, device_id, device_name):
-        line_item = DevicePanel(device_id, device_name)
+        line_item = DevicePanel(device_id, device_name, self)
         layout_size = self.main_layout.count()
 
         # Insert before panel stretch if it exists
@@ -149,25 +183,60 @@ class AssistanceUI(QWidget):
     def load_devices(self):
         try:
             with open(self.DEVICE_FILE) as f:
-                self.devices = json.load(f)
+                devices = json.load(f)
+            self.update_devices(devices)
+
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Question)
+            msg.setWindowTitle("Update Devices")
+            msg.setWindowIcon(self.ico_app)
+            msg.setText("Devices loaded!")
+            msg.setInformativeText("Save all devices to system controller?")
+            msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            msg.setDefaultButton(QMessageBox.No)
+            result = msg.exec()
+            if result == QMessageBox.Yes:
+                self.save_all_devices()
+
         except FileNotFoundError:
-            self.devices = {}
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setWindowTitle("Restore Device List")
+            msg.setWindowIcon(self.ico_app)
+            msg.setText("Device list not found at:")
+            msg.setInformativeText("{}".format(os.path.join(os.getcwd(), self.DEVICE_FILE)))
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec()
 
     def save_devices(self):
         data = json.dumps(self.devices)
         with open(self.DEVICE_FILE, "w") as f:
             f.write(data)
 
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Information)
+        msg.setWindowTitle("Device List Backup")
+        msg.setWindowIcon(self.ico_app)
+        msg.setText("Device list has been saved to:")
+        msg.setInformativeText("{}".format(os.path.join(os.getcwd(), self.DEVICE_FILE)))
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec()
+
+    def save_all_devices(self):
+        for device_id, device_name in self.devices.items():
+            self.mqtt.device_ren(device_id, device_name)
+
 
 class DevicePanel(QHBoxLayout):
 
     APP_ICON = "./resources/app.ico"
 
-    def __init__(self, device_id, device_name):
+    def __init__(self, device_id, device_name, main_app):
         super().__init__()
 
         self.device_id = device_id
         self.device_name = device_name
+        self.main_app = main_app
 
         self.init_panel()
 
@@ -215,7 +284,7 @@ class DevicePanel(QHBoxLayout):
         self.addWidget(self.btn_info)
 
     def btn_status_click(self, pressed):
-        self.parent().parent().mqtt.device_set_status(self.device_id, pressed)
+        self.main_app.mqtt.device_set_status(self.device_id, pressed)
 
     def btn_status_set(self, status):
         if status =='OFFLINE':
@@ -238,7 +307,7 @@ class DevicePanel(QHBoxLayout):
         if result:
             log.info("Renaming {} from '{}' to '{}'".format(self.device_id, self.device_name, msg.textValue()))
             self.device_name = msg.textValue()
-            self.parent().parent().mqtt.device_ren(self.device_id, self.device_name)
+            self.main_app.mqtt.device_ren(self.device_id, self.device_name)
             self.lbl_name.setText(self.device_name)
 
     def btn_delete_click(self):
@@ -252,8 +321,8 @@ class DevicePanel(QHBoxLayout):
         result = msg.exec()
         if result == QMessageBox.Ok:
             log.info("Deleting {} ({})".format(self.device_name, self.device_id))
-            self.parent().parent().mqtt.device_del(self.device_id)
-            self.parent().parent().remove_device(self.device_id)
+            self.main_app.mqtt.device_del(self.device_id)
+            self.main_app.remove_device(self.device_id)
 
     def btn_info_click(self):
         msg = QMessageBox()
@@ -297,8 +366,3 @@ if __name__ == '__main__':
         print("Ctrl-C pressed")
     except Exception as e:
         log.error("Error: {}".format(e))
-
-
-# TODO: save device list locally for backup (File menu?)
-# TODO: reload device list from controller (File menu?)
-
