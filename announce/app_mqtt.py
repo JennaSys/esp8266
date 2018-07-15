@@ -7,7 +7,7 @@ from uuid import getnode
 from datetime import datetime
 from PyQt5.QtCore import QObject
 
-from assistance_config import config
+from assist_config import config
 
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(funcName)s() --> %(message)s')
@@ -160,3 +160,4 @@ class AssistanceApp(QObject):
         log.info('MQTT for {} has been disconnected.'.format(self.mac))
 
 # TODO: add mqtt security
+# TODO: mqtt keepalive setting?

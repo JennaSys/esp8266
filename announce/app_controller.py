@@ -5,7 +5,7 @@ import paho.mqtt.client as MQTTClient
 from uuid import getnode
 import logging
 
-from assistance_config import config
+from assist_config import config
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(funcName)s() --> %(message)s')
 log = logging.getLogger(__name__)
@@ -155,3 +155,5 @@ if __name__ == '__main__':
     announce.start()
 
 # TODO: add mqtt security
+# TODO: Map out and document API for mqtt commands
+

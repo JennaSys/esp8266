@@ -184,6 +184,12 @@ if __name__ == '__main__':
 # TODO: disable REPL in production mode
 # TODO: add LED effects:  all on/all flash fast/all flash slow/round robin sequence/alt corner sequence/corner flash 1 LED
 # TODO: round robin flash LEDs on loss of network
+# TODO: crashing on loss of network?
+# TODO: add exception handling and publish log message to system on error
 # TODO: flash LEDs on loss of broker connection
 # TODO: corner flash 1 LED if battery is low
 # TODO: Add buzzer?
+# TODO: mqqt keepalive setting?
+# TODO: add hardware reset button?
+# TODO: status call to ESP-01 currently turns off LED
+
