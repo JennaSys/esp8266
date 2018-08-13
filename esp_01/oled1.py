@@ -13,9 +13,13 @@ oled_cs = 0    # D3
 # CLK = D5
 
 i2c_device = 0x3c  # i2c address of oled
-oled_scl = 3   # RX
-oled_sda = 1   # TX
+# ESP-12
+oled_scl = 4   # D2
+oled_sda = 5   # D1
 
+# ESP-01
+# oled_scl = 3   # RX
+# oled_sda = 1   # TX
 
 def oled_i2c():
     i2c = machine.I2C(scl=machine.Pin(oled_scl), sda=machine.Pin(oled_sda))
