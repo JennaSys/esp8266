@@ -96,9 +96,10 @@ class WebServer:
                 (sckt, sockaddr) = server.accept()
                 self.handle(sckt)
             except:
-                sckt.write("HTTP/1.1 500 Internal Server Error\r\n\r\n")
-                sckt.write("<h1>Internal Server Error</h1>")
-                sckt.close()
+                if sckt is not None:
+                    sckt.write("HTTP/1.1 500 Internal Server Error\r\n\r\n")
+                    sckt.write("<h1>Internal Server Error</h1>")
+                    sckt.close()
 
 
 if __name__ == '__main__':
