@@ -4,6 +4,7 @@ from time import sleep
 
 class RGB:
     def __init__(self):
+        # Set GPIO pins
         self.pin_r = 4
         self.pin_g = 5
         self.pin_b = 2
@@ -21,6 +22,7 @@ class RGB:
         self.pwm_b.deinit()
 
     def set_leds(self, r, g, b):
+        # Input RGB values are by percentage
         self.pwm_r.duty(int(r * 1023 / 100))
         self.pwm_g.duty(int(g * 1023 / 100))
         self.pwm_b.duty(int(b * 1023 / 100))
