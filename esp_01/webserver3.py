@@ -7,7 +7,7 @@ from keys import ssids
 
 class WebServer:
     TITLE = "LED Control"
-    GPIO_NUM = 2
+    GPIO_NUM = 5
 
     def __init__(self):
         self.pin = Pin(self.GPIO_NUM)
