@@ -42,7 +42,7 @@ class WebServer:
         sckt.write("Content-Type: text/html\r\n")
         sckt.write("Connection: close\r\n\r\n")
         if query != b"":
-            # print(query)
+            print(query.decode())
             query_str = query.decode().split('&')
             params = dict([param.split('=') for param in query_str])
             # print('r@' + params['r'])
