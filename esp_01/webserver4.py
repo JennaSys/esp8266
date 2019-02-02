@@ -1,6 +1,4 @@
 import socket
-import traceback
-
 import rgb
 
 
@@ -116,7 +114,6 @@ class WebServer:
                 self.handle(conn)
             except Exception as e:
                 print(repr(e))
-                traceback.print_exc()
                 try:
                     print(conn)
                     conn.send(b"HTTP/1.1 500 Internal Server Error\r\n\r\n")
