@@ -1,4 +1,6 @@
 import socket
+import traceback
+
 import rgb
 
 
@@ -37,13 +39,13 @@ class WebServer:
         self.led = rgb.RGB()
         self.led.setup()
 
-    def ok(self, sckt, query):
-        sckt.write("HTTP/1.1 200 OK\r\n")
-        sckt.write("Content-Type: text/html\r\n")
-        sckt.write("Connection: close\r\n\r\n")
-        if query != b"":
-            print(query.decode())
-            query_str = query.decode().split('&')
+    def ok(self, conn, query):
+        conn.send(b"HTTP/1.1 200 OK\r\n")
+        conn.send(b"Content-Type: text/html\r\n\r\n")
+
+        if query != "":
+            print(query)
+            query_str = query.split('&')
             params = dict([param.split('=') for param in query_str])
             # print('r@' + params['r'])
             # print('g@' + params['g'])
@@ -51,55 +53,77 @@ class WebServer:
 
             self.led.led_val(int(params['r']), int(params['g']), int(params['b']))
 
-        sckt.write(self.HTML_DOC)
-        sckt.close()
+        conn.sendall(self.HTML_DOC.encode())
+        conn.close()
 
     @staticmethod
-    def err(sckt, code, message):
-        sckt.write("HTTP/1.1 " + code + " " + message + "\r\n\r\n")
-        sckt.write("<h1>" + message + "</h1>")
+    def err(conn, code, message):
+        conn.send(("HTTP/1.1 " + code + " " + message + "\r\n\r\n").encode())
+        conn.send(("<h1>" + message + "</h1>").encode())
+        conn.close()
 
-    def handle(self, sckt):
-        (method, url, version) = sckt.readline().split(b" ")
-        if b"?" in url:
-            (path, query) = url.split(b"?", 2)
-        else:
-            (path, query) = (url, b"")
-        while True:
-            header = sckt.readline()
-            if header == b"":
+    def handle(self, conn):
+        try:
+            chunk = b""
+            while True:
+                chunk += conn.recv(1024)
+                if chunk[-4:] == b'\r\n\r\n' or chunk == b'' or not chunk:
+                    break
+        except Exception as e:
+            print("recv error...")
+            repr(e)
+
+        data = chunk.decode()
+        # print(len(data))
+        try:
+            if len(data) == 0:
                 return
-            if header == b"\r\n":
-                break
+            else:
+                (method, url, version) = data.split('\r\n')[0].split(' ')
+        except ValueError:
+            print("Data Error: " + data)
+            return
+
+        if "?" in url:
+            (path, query) = url.split("?", 2)
+        else:
+            (path, query) = (url, "")
 
         # print(method)
         # print(url)
         # print(version)
-        # print(header)
 
-        if version != b"HTTP/1.0\r\n" and version != b"HTTP/1.1\r\n":
-            self.err(sckt, "505", "Version Not Supported")
-        elif method == b"GET":
-            if path == b"/":
-                self.ok(sckt, query)
+        if version != "HTTP/1.0" and version != "HTTP/1.1":
+            self.err(conn, "505", "Version Not Supported")
+        elif method == "GET":
+            if path == "/":
+                self.ok(conn, query)
             else:
-                self.err(sckt, "404", "Not Found")
+                self.err(conn, "404", "Not Found")
         else:
-            self.err(sckt, "501", "Not Implemented")
+            self.err(conn, "501", "Not Implemented")
 
     def run(self):
-        server = socket.socket()
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.bind(('0.0.0.0', 80))
-        server.listen(1)
+        server.listen(5)
         while True:
             try:
-                (sckt, sockaddr) = server.accept()
-                self.handle(sckt)
-            except:
-                if sckt is not None:
-                    sckt.write("HTTP/1.1 500 Internal Server Error\r\n\r\n")
-                    sckt.write("<h1>Internal Server Error</h1>")
-                    sckt.close()
+                conn = None
+                request = server.accept()
+                # print(request)
+                (conn, addr) = request
+                self.handle(conn)
+            except Exception as e:
+                print(repr(e))
+                traceback.print_exc()
+                try:
+                    print(conn)
+                    conn.send(b"HTTP/1.1 500 Internal Server Error\r\n\r\n")
+                    conn.send(b"<h1>Internal Server Error</h1>")
+                    conn.close()
+                except:
+                    pass
 
 
 if __name__ == '__main__':

@@ -16,6 +16,10 @@ class RGB:
         self.pwm_g = PWM(Pin(self.pin_g), freq=pwm_freq)
         self.pwm_b = PWM(Pin(self.pin_b), freq=pwm_freq)
 
+        self.pwm_r.duty(0)
+        self.pwm_g.duty(0)
+        self.pwm_b.duty(0)
+
     def close(self):
         self.pwm_r.deinit()
         self.pwm_g.deinit()
