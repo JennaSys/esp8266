@@ -37,42 +37,50 @@ class WebServer:
         self.led = rgb.RGB()
         self.led.setup()
 
-    def ok(self, conn, query):
+    def ok(self, req, query):
+        conn, addr = req
         conn.send(b"HTTP/1.1 200 OK\r\n")
-        conn.send(b"Content-Type: text/html\r\n\r\n")
+        conn.send(b"Content-Type: text/html\r\n")
+        conn.send(b"Connection: close\r\n\r\n")
 
         if query != "":
-            print(query)
+            # print(query)
             query_str = query.split('&')
             params = dict([param.split('=') for param in query_str])
             # print('r@' + params['r'])
             # print('g@' + params['g'])
             # print('b@' + params['b'])
+            print("Request [{}] - R({}) G({}) B({})".format(addr[0], params['r'], params['g'], params['b']))
 
             self.led.led_val(int(params['r']), int(params['g']), int(params['b']))
 
         conn.sendall(self.HTML_DOC.encode())
-        conn.close()
 
     @staticmethod
     def err(conn, code, message):
         conn.send(("HTTP/1.1 " + code + " " + message + "\r\n\r\n").encode())
         conn.send(("<h1>" + message + "</h1>").encode())
-        conn.close()
 
-    def handle(self, conn):
+    def handle(self, req):
+        conn, addr = req
+        conn.settimeout(1)
         try:
-            chunk = b""
+            recv_data = b""
             while True:
-                chunk += conn.recv(1024)
-                if chunk[-4:] == b'\r\n\r\n' or chunk == b'' or not chunk:
+                chunk = conn.recv(1024)
+                recv_data += chunk
+                if recv_data[-4:] == b'\r\n\r\n' or chunk == b'' or not chunk:
                     break
+        except OSError as e:
+            if e.args[0] == "timed out" or e.args[0] == 110:  # ETIMEDOUT
+                print("Socket Timeout - {}:{}".format(addr[0], addr[1]))
+            else:
+                print("OSError: {}".format(e))
         except Exception as e:
-            print("recv error...")
-            repr(e)
+            print("Recv error: {}".format(e))
 
-        data = chunk.decode()
-        # print(len(data))
+        # print("recv_data: '{}'".format(recv_data))
+        data = recv_data.decode()
         try:
             if len(data) == 0:
                 return
@@ -95,34 +103,43 @@ class WebServer:
             self.err(conn, "505", "Version Not Supported")
         elif method == "GET":
             if path == "/":
-                self.ok(conn, query)
+                self.ok(req, query)
             else:
                 self.err(conn, "404", "Not Found")
         else:
             self.err(conn, "501", "Not Implemented")
 
     def run(self):
+        host = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.bind(('0.0.0.0', 80))
+        server.bind(host)
         server.listen(5)
+        print("Server started on {}".format(host))
         while True:
             try:
-                conn = None
                 request = server.accept()
                 # print(request)
-                (conn, addr) = request
-                self.handle(conn)
+                conn, addr = request
+                self.handle(request)
             except Exception as e:
-                print(repr(e))
+                print(e)
                 try:
-                    print(conn)
                     conn.send(b"HTTP/1.1 500 Internal Server Error\r\n\r\n")
                     conn.send(b"<h1>Internal Server Error</h1>")
-                    conn.close()
                 except:
-                    pass
+                    print("Error processing HTTP 500")
+            finally:
+                try:
+                    conn.close()
+                    print("Closed Connection")
+                except:
+                    print("Error closing socket")
+
+
+def start():
+    ws = WebServer()
+    ws.run()
 
 
 if __name__ == '__main__':
-    ws = WebServer()
-    ws.run()
+    start()
