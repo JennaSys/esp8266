@@ -10,7 +10,7 @@ class RGB:
         self.pin_b = 4
 
     def setup(self):
-        pwm_freq = 5000
+        pwm_freq = 1000
 
         self.pwm_r = PWM(Pin(self.pin_r), freq=pwm_freq)
         self.pwm_g = PWM(Pin(self.pin_g), freq=pwm_freq)
