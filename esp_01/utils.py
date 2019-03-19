@@ -8,12 +8,15 @@ import ubinascii
 import webrepl
 import machine
 import esp
+import gc
 from flashbdev import bdev
 
 from keys import ssids
 
 
 # File utilities
+# TODO: implement sd card read/write
+
 def ls():
     dir_list = os.listdir()
     for f in sorted(dir_list):
@@ -30,7 +33,25 @@ def ren(file, newfile):
     os.rename(file, newfile)
 
 
+# Memory Utils
+def df():
+    s = os.statvfs('//')
+    return ('{0} MB'.format((s[0]*s[3])/1048576))
+
+def free(full=False):
+    gc.collect()
+    F = gc.mem_free()
+    A = gc.mem_alloc()
+    T = F+A
+    P = '{0:.2f}%'.format(F/T*100)
+    if not full: return P
+    else : return ('Total:{0} Free:{1} ({2})'.format(T,F,P))
+
+
 # Network utilities
+# TODO: implement AP mode at boot to setup network: https://randomnerdtutorials.com/wifimanager-with-esp8266-autoconnect-custom-parameter-and-manage-your-ssid-and-password/
+# TODO: implement clear saved network configs  (flash 128 bytes at 0x7E000 ?)
+
 def connect_wifi(loc=None):
     if loc is None:
         loc = input("Enter location key: ")
