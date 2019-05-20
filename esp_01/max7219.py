@@ -1,3 +1,5 @@
+# Simplifed version specifically for 7-segment displays on ESP8266 based on https://github.com/rm-hull/max7219
+
 from machine import Pin, SPI
 import time
 
@@ -24,7 +26,7 @@ SPI_BAUDRATE = 100000
 SPI_CS = 0    # D3
 
 
-class MAX7219:
+class SevenSegment:
     def __init__(self, digits=8, cs=SPI_CS, scan_digits=MAX7219_DIGITS):
         """
         Constructor: `digits` should be the number of individual digits being displayed. `cs` is the chip select pin.
