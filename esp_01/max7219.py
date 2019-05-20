@@ -1,0 +1,363 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+from machine import Pin, SPI
+import time
+
+
+class constants(object):
+    MAX7219_REG_NOOP = 0x0
+    MAX7219_REG_DIGIT0 = 0x1
+    MAX7219_REG_DIGIT1 = 0x2
+    MAX7219_REG_DIGIT2 = 0x3
+    MAX7219_REG_DIGIT3 = 0x4
+    MAX7219_REG_DIGIT4 = 0x5
+    MAX7219_REG_DIGIT5 = 0x6
+    MAX7219_REG_DIGIT6 = 0x7
+    MAX7219_REG_DIGIT7 = 0x8
+    MAX7219_REG_DECODEMODE = 0x9
+    MAX7219_REG_INTENSITY = 0xA
+    MAX7219_REG_SCANLIMIT = 0xB
+    MAX7219_REG_SHUTDOWN = 0xC
+    MAX7219_REG_DISPLAYTEST = 0xF
+
+
+class device(object):
+    """
+    Base class for handling multiple cascaded MAX7219 devices.
+    Callers should generally pick either the :py:class:`sevensegment` or
+    :py:class:`matrix` subclasses instead depending on which application
+    is required.
+
+    A buffer is maintained which holds the bytes that will be cascaded
+    every time :py:func:`flush` is called.
+    """
+    NUM_DIGITS = 8
+    SPI_MODE = 1  # hardware SPI
+    SPI_CS = 0    # D3
+
+    def __init__(self, cascaded=1):
+        """
+        Constructor: `cascaded` should be the number of cascaded MAX7219
+        devices that are connected. `vertical` should be set to True if
+        the text should start from the header instead perpendicularly.
+        """
+
+        self._cascaded = cascaded
+        self._buffer = [0] * self.NUM_DIGITS * self._cascaded
+        self._spi = SPI(self.SPI_MODE, baudrate=100000, polarity=0, phase=0)
+        self._cs = Pin(self.SPI_CS, Pin.OUT, value=1)
+
+        self.command(constants.MAX7219_REG_SCANLIMIT, 7)    # show all 8 digits
+        self.command(constants.MAX7219_REG_DECODEMODE, 0)   # use matrix (not digits)
+        self.command(constants.MAX7219_REG_DISPLAYTEST, 0)  # no display test
+        self.command(constants.MAX7219_REG_SHUTDOWN, 1)     # not shutdown mode
+        self.brightness(7)                                  # intensity: range: 0..15
+        self.clear()
+
+    def command(self, register, data):
+        """
+        Sends a specific register some data, replicated for all cascaded
+        devices
+        """
+        self._write([register, data] * self._cascaded)
+
+    def _write(self, data):
+        """
+        Send the bytes (which should comprise of alternating command,
+        data values) over the SPI device.
+        """
+        self._cs.off()
+        for datum in data:
+            self._spi.write(bytearray([datum]))
+        self._cs.on()
+
+    def _values(self, position, buf):
+        """
+        A generator which yields the digit/column position and the data
+        value from that position for each of the cascaded devices.
+        """
+        for deviceId in range(self._cascaded):
+            yield position + constants.MAX7219_REG_DIGIT0
+            yield buf[(deviceId * self.NUM_DIGITS) + position]
+
+    def clear(self, deviceId=None):
+        """
+        Clears the buffer the given deviceId if specified (else clears all
+        devices), and flushes.
+        """
+
+        if deviceId is None:
+            start = 0
+            end = self._cascaded
+        else:
+            start = deviceId
+            end = deviceId + 1
+
+        for deviceId in range(start, end):
+            for position in range(self.NUM_DIGITS):
+                self.set_byte(deviceId,
+                              position + constants.MAX7219_REG_DIGIT0,
+                              0, redraw=False)
+
+        self.flush()
+
+    def flush(self):
+        """
+        For each digit/column, cascade out the contents of the buffer
+        cells to the SPI device.
+        """
+        # Allow subclasses to pre-process the buffer: they shouldn't
+        # alter it, so make a copy first.
+        buf = list(self._buffer)
+
+        for posn in range(self.NUM_DIGITS):
+            self._write(self._values(posn, buf))
+
+    def brightness(self, intensity):
+        """
+        Sets the brightness level of all cascaded devices to the same
+        intensity level, ranging from 0..15. Note that setting the brightness
+        to a high level will draw more current, and may cause intermittent
+        issues / crashes if the USB power source is insufficient.
+        """
+        self.command(constants.MAX7219_REG_INTENSITY, intensity)
+
+    def set_byte(self, deviceId, position, value, redraw=True):
+        """
+        Low level mechanism to set a byte value in the buffer array. If redraw
+        is not suppled, or set to True, will force a redraw of _all_ buffer
+        items: If you are calling this method rapidly/frequently (e.g in a
+        loop), it would be more efficient to set to False, and when done,
+        call :py:func:`flush`.
+
+        Prefer to use the higher-level method calls in the subclasses below.
+        """
+
+        offset = (deviceId * self.NUM_DIGITS) + position - constants.MAX7219_REG_DIGIT0
+        self._buffer[offset] = value
+
+        if redraw:
+            self.flush()
+
+    def rotate_left(self, redraw=True):
+        """
+        Scrolls the buffer one column to the left. The data that scrolls off
+        the left side re-appears at the right-most position. If redraw
+        is not suppled, or left set to True, will force a redraw of _all_ buffer
+        items
+        """
+        t = self._buffer[-1]
+        for i in range((self.NUM_DIGITS * self._cascaded) - 1, 0, -1):
+            self._buffer[i] = self._buffer[i - 1]
+        self._buffer[0] = t
+        if redraw:
+            self.flush()
+
+    def rotate_right(self, redraw=True):
+        """
+        Scrolls the buffer one column to the right. The data that scrolls off
+        the right side re-appears at the left-most position. If redraw
+        is not suppled, or left set to True, will force a redraw of _all_ buffer
+        items
+        """
+        t = self._buffer[0]
+        for i in range(0, (self.NUM_DIGITS * self._cascaded) - 1, 1):
+            self._buffer[i] = self._buffer[i + 1]
+        self._buffer[-1] = t
+        if redraw:
+            self.flush()
+
+    def scroll_left(self, redraw=True):
+        """
+        Scrolls the buffer one column to the left. Any data that scrolls off
+        the left side is lost and does not re-appear on the right. An empty
+        column is inserted at the right-most position. If redraw
+        is not suppled, or set to True, will force a redraw of _all_ buffer
+        items
+        """
+        del self._buffer[0]
+        self._buffer.append(0)
+        if redraw:
+            self.flush()
+
+    def scroll_right(self, redraw=True):
+        """
+        Scrolls the buffer one column to the right. Any data that scrolls off
+        the right side is lost and does not re-appear on the left. An empty
+        column is inserted at the left-most position. If redraw
+        is not suppled, or set to True, will force a redraw of _all_ buffer
+        items
+        """
+        del self._buffer[-1]
+        self._buffer.insert(0, 0)
+        if redraw:
+            self.flush()
+
+
+class sevensegment(device):
+    """
+    Implementation of MAX7219 devices cascaded with a series of seven-segment
+    LEDs. It provides a convenient method to write a number to a given device
+    in octal, decimal or hex, flushed left/right with zero padding. Base 10
+    numbers can be either integers or floating point (with the number of
+    decimal points configurable).
+    """
+    _UNDEFINED = 0x08
+    _RADIX = {8: 'o', 10: 'f', 16: 'x'}
+    # Some letters cannot be represented by 7 segments, so dictionay lookup
+    # will default to _UNDEFINED (an underscore) instead.
+    _DIGITS = {
+        ' ': 0x00,
+        '-': 0x01,
+        '_': 0x08,
+        '0': 0x7e,
+        '1': 0x30,
+        '2': 0x6d,
+        '3': 0x79,
+        '4': 0x33,
+        '5': 0x5b,
+        '6': 0x5f,
+        '7': 0x70,
+        '8': 0x7f,
+        '9': 0x7b,
+        'a': 0x7d,
+        'b': 0x1f,
+        'c': 0x0d,
+        'd': 0x3d,
+        'e': 0x6f,
+        'f': 0x47,
+        'g': 0x7b,
+        'h': 0x17,
+        'i': 0x10,
+        'j': 0x18,
+        # 'k': cant represent
+        'l': 0x06,
+        # 'm': cant represent
+        'n': 0x15,
+        'o': 0x1d,
+        'p': 0x67,
+        'q': 0x73,
+        'r': 0x05,
+        's': 0x5b,
+        't': 0x0f,
+        'u': 0x1c,
+        'v': 0x1c,
+        # 'w': cant represent
+        # 'x': cant represent
+        'y': 0x3b,
+        'z': 0x6d,
+        'A': 0x77,
+        'B': 0x7f,
+        'C': 0x4e,
+        'D': 0x7e,
+        'E': 0x4f,
+        'F': 0x47,
+        'G': 0x5e,
+        'H': 0x37,
+        'I': 0x30,
+        'J': 0x38,
+        # 'K': cant represent
+        'L': 0x0e,
+        # 'M': cant represent
+        'N': 0x76,
+        'O': 0x7e,
+        'P': 0x67,
+        'Q': 0x73,
+        'R': 0x46,
+        'S': 0x5b,
+        'T': 0x0f,
+        'U': 0x3e,
+        'V': 0x3e,
+        # 'W': cant represent
+        # 'X': cant represent
+        'Y': 0x3b,
+        'Z': 0x6d,
+        ',': 0x80,
+        '.': 0x80
+    }
+
+    def letter(self, deviceId, position, char, dot=False, redraw=True):
+        """
+        Looks up the most appropriate character representation for char
+        from the digits table, and writes that bitmap value into the buffer
+        at the given deviceId / position.
+        """
+        assert dot in [0, 1, False, True]
+        value = self._DIGITS.get(str(char), self._UNDEFINED) | (dot << 7)
+        self.set_byte(deviceId, position, value, redraw)
+
+    def write_number(self, deviceId, value, base=10, decimalPlaces=0,
+                     zeroPad=False, leftJustify=False):
+        """
+        Formats the value according to the parameters supplied, and displays
+        on the specified device. If the formatted number is larger than
+        8 digits, then an OverflowError is raised.
+        """
+        assert 0 <= deviceId < self._cascaded, "Invalid deviceId: {0}".format(deviceId)
+        assert base in self._RADIX, "Invalid base: {0}".format(base)
+
+        # Magic up a printf format string
+        size = self.NUM_DIGITS
+        formatStr = '%'
+
+        if zeroPad:
+            formatStr += '0'
+
+        if decimalPlaces > 0:
+            size += 1
+
+        if leftJustify:
+            size *= -1
+
+        formatStr = '{fmt}{size}.{dp}{type}'.format(
+                        fmt=formatStr, size=size, dp=decimalPlaces,
+                        type=self._RADIX[base])
+
+        position = constants.MAX7219_REG_DIGIT7
+        strValue = formatStr % value
+
+        # Go through each digit in the formatted string,
+        # updating the buffer accordingly
+        for char in strValue:
+
+            if position < constants.MAX7219_REG_DIGIT0:
+                self.clear(deviceId)
+                raise OverflowError('{0} too large for display'.format(strValue))
+
+            if char == '.':
+                continue
+
+            dp = (decimalPlaces > 0 and position == decimalPlaces + 1)
+            self.letter(deviceId, position, char, dot=dp, redraw=False)
+            position -= 1
+
+        self.flush()
+
+    def write_text(self, deviceId, text):
+        """
+        Outputs the text (as near as possible) on the specific device. If
+        text is larger than 8 characters, then an OverflowError is raised.
+        """
+        if len(text) > 8:
+            raise OverflowError('{0} too large for display'.format(text))
+        # for pos, char in enumerate(text.ljust(8)[::-1]):
+        for pos in range(8):
+            self.letter(deviceId, constants.MAX7219_REG_DIGIT0 + pos, text[8 - pos - 1:8 - pos], redraw=False)
+
+        self.flush()
+
+    def show_message(self, text, delay=0.4):
+        """
+        Transitions the text message across the devices from left-to-right
+        """
+        # Add some spaces on (same number as cascaded devices) so that the
+        # message scrolls off to the left completely.
+        text += ' ' * self._cascaded * 8
+        for value in text:
+            time.sleep(delay)
+            self.scroll_right(redraw=False)
+            self._buffer[0] = self._DIGITS.get(value, self._UNDEFINED)
+            self.flush()
+
+
