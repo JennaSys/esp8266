@@ -68,8 +68,8 @@ class device(object):
         data values) over the SPI device.
         """
         self._cs.off()
-        for datum in data:
-            self._spi.write(bytearray([datum]))
+        for dat in data:
+            self._spi.write(bytearray([dat]))
         self._cs.on()
 
     def _values(self, position, buf):
