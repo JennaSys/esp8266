@@ -133,6 +133,33 @@ class SevenSegment:
                     if strval[pos + 1] == '.':
                         dot = True
                 self.letter(pos, char, dot, False)
-                pos +=1
+                pos += 1
 
         self.flush()
+
+    def scroll(self, rotate=True, reverse=False, flush=True):
+        if reverse:
+            tmp = self._buffer.pop()
+            if rotate:
+                self._buffer.insert(0, tmp)
+            else:
+                self._buffer.insert(0, 0x00)
+        else:
+            tmp = self._buffer.pop(0)
+            if rotate:
+                self._buffer.append(tmp)
+            else:
+                self._buffer.append(0x00)
+
+        if flush:
+            self.flush()
+
+    def message(self, text, delay=0.4):
+        """
+        Transitions the text message across the devices from left-to-right
+        """
+        self.clear(False)
+        for char in text:
+            time.sleep(delay)
+            self.scroll(rotate=False)
+            self.letter(self.digits-1, char)
