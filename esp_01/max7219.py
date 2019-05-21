@@ -63,12 +63,13 @@ class SevenSegment:
         self._spi.write(bytes(data))
         self._cs.on()
 
-    def clear(self):
+    def clear(self, flush=True):
         """
-        Clears the buffer and flushes the display.
+        Clears the buffer and if specified, flushes the display.
         """
         self._buffer = [0] * self.digits
-        self.flush()
+        if flush:
+            self.flush()
 
     def flush(self):
         """
@@ -88,7 +89,7 @@ class SevenSegment:
         """
         Looks up the appropriate character representation for char and updates the buffer, flushes by default
         """
-        value = ssd_ascii.get_char(char) | (dot << 7)
+        value = ssd_ascii.get_char2(char) | (dot << 7)
         self._buffer[position] = value
 
         if redraw:
@@ -98,9 +99,40 @@ class SevenSegment:
         """
         Outputs the text (as near as possible) on the specific device.
         """
-        self._buffer = [0] * self.digits
+        self.clear(False)
         text = text[:self.digits]  # make sure we don't overrun the buffer
         for pos, char in enumerate(text):
             self.letter(pos, char, redraw=False)
+
+        self.flush()
+
+    def write_number(self, val):
+        """
+        Formats the value according to the parameters supplied, and displays it
+        """
+        self.clear(False)
+        strval = ''
+        if isinstance(val, (int, float)):
+            strval = str(val)
+        elif isinstance(val, str):
+            if val.replace('.', '', 1).strip().isdigit():
+                strval = val
+
+        if '.' in strval:
+            strval = strval[:self.digits+1]
+        else:
+            strval = strval[:self.digits]
+
+        pos = 0
+        for char in strval:
+            dot = False
+            if char == '.':
+                continue
+            else:
+                if pos < len(strval) - 1:
+                    if strval[pos + 1] == '.':
+                        dot = True
+                self.letter(pos, char, dot, False)
+                pos +=1
 
         self.flush()

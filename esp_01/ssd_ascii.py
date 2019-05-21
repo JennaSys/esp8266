@@ -101,4 +101,11 @@ char_map = {
 
 
 def get_char(char):
-    char_map.get(str(char), char_map.get('_'))
+    return char_map.get(str(char), char_map.get('_'))
+
+
+def get_char2(char):
+    # 7 Segment bit order: DP-A-B-C-D-E-F-G
+    bits = get_char(char)
+    tmp = '{:08b}'.format(bits)
+    return int(''.join(['0b', tmp[0], ''.join(reversed(tmp[1:]))]), 2)
