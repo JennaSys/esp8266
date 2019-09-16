@@ -2,8 +2,8 @@ from machine import Pin
 import time
 
 
-led = Pin(5, Pin.OUT)              # D1
-btn = Pin(4, Pin.IN, Pin.PULL_UP)  # D2
+led = Pin(2, Pin.OUT)              # D1
+btn = Pin(0, Pin.IN, Pin.PULL_UP)  # D2
 
 prev_btn_press = time.ticks_ms()
 
@@ -20,13 +20,16 @@ def cb(p):
         prev_btn_press = time.ticks_ms()
         if delta > 20:  # Ignore any triggers < 20ms
             led.value(not led.value())
+            print('OFF' if led.value() else 'ON')
 
 
 def cb2(p):
     if p.value():
         led.on()
+        print('ON')
     else:
         led.off()
+        print('OFF')
 
 
 def cb_test(p):
