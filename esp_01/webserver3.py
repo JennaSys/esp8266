@@ -2,8 +2,6 @@ import network
 import socket
 from machine import Pin
 
-from keys import ssids
-
 
 class WebServer:
     TITLE = "LED Control"
